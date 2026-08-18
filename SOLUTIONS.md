@@ -77,3 +77,19 @@
 - Files Changed: SOLUTIONS.md
 - Status: Workaround
 - Verification: Static server returned `200 OK` for `/`, `/app.js`, `/styles.css`, and `/og.png`.
+
+## [2026-08-18 10:34] Pages API Shell Quoting Error
+- Problem: The first `gh api` command to enable Pages failed with `zsh: no matches found: source[branch]=main`.
+- Root Cause: zsh interpreted unquoted square brackets as a filename glob.
+- Solution: Retried the command with quoted form fields.
+- Files Changed: SOLUTIONS.md
+- Status: Resolved
+- Verification: GitHub accepted the quoted Pages configuration request.
+
+## [2026-08-18 10:34] Legacy Pages Deployment Cancelled
+- Problem: GitHub's legacy Pages publisher built the `/docs` artifact but cancelled the deploy step.
+- Root Cause: Unknown
+- Solution: Added an explicit GitHub Actions workflow to upload `docs/` and deploy through `actions/deploy-pages`.
+- Files Changed: .github/workflows/pages.yml, SOLUTIONS.md
+- Status: Resolved
+- Verification: Pending workflow deployment check after commit and push.

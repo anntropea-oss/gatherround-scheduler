@@ -37,3 +37,11 @@
 - Files Changed: db/schema.ts, drizzle/0000_giant_gunslinger.sql, drizzle/meta/0000_snapshot.json, drizzle/meta/_journal.json, SOLUTIONS.md
 - Status: Resolved
 - Verification: `npm run db:generate` completed successfully and the generated SQL contains `idx_poll_options_poll_id`, `idx_responses_poll_id`, and `idx_response_slots_option_id`.
+
+## [2026-08-18 10:19] Transient Dev Server Reload Errors
+- Problem: The local development server showed temporary 500 reload errors while files were being added, removed, and corrected during the edit loop.
+- Root Cause: Hot module reload briefly evaluated intermediate file states, including deleted starter preview imports and incomplete stylesheet edits.
+- Solution: Completed the file edits, fixed the stylesheet, and validated the final app with clean lint, build, render tests, and an API smoke test.
+- Files Changed: app/SchedulerApp.tsx, app/page.tsx, app/globals.css, tests/rendered-html.test.mjs, SOLUTIONS.md
+- Status: Resolved
+- Verification: Final `npm run lint`, `npm test`, and the create/respond/read API smoke test all passed.

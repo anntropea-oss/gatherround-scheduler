@@ -148,6 +148,10 @@ h2 {
   grid-template-columns: minmax(0, 1.1fr) minmax(340px, 0.9fr);
 }
 
+.workspace.hub {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .panel,
 .poll-main,
 .side-panel {
@@ -172,6 +176,28 @@ h2 {
   border: 0;
   box-shadow: none;
   padding: 0;
+}
+
+.cta-panel {
+  color: inherit;
+  min-height: 190px;
+  text-decoration: none;
+}
+
+.cta-panel strong {
+  font-size: clamp(1.5rem, 3vw, 2.4rem);
+  line-height: 1.05;
+}
+
+.cta-panel span {
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+
+.cta-panel:focus-visible,
+.cta-panel:hover {
+  border-color: var(--blue);
+  box-shadow: inset 0 0 0 2px rgba(82, 119, 216, 0.2), var(--shadow);
 }
 
 .poll-title-row {
@@ -423,6 +449,7 @@ button:focus-visible {
   }
 
   .masthead,
+  .workspace.hub,
   .workspace.creator,
   .workspace.poll,
   .result-grid {

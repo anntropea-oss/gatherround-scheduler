@@ -3,20 +3,20 @@
 GatherRound is a friendly scheduling poll for finding a meeting time without
 calendar back-and-forth.
 
-This repo contains two builds:
+This repo contains two surfaces:
 
-- `docs/`: static GitHub Pages build.
-- `app/`, `db/`, `worker/`: full-stack D1-backed build for hosts that support a
-  server runtime.
+- `app/`, `db/`, `worker/`: the real full-stack D1-backed app.
+- `docs/`: a GitHub Pages project hub that points people to the real app.
 
 ## GitHub Pages
 
-GitHub Pages serves the static app from `docs/`.
+GitHub Pages serves `docs/`, but GitHub Pages is static hosting. It cannot store
+shared poll records or attendee responses by itself, so the Pages build is a
+project hub rather than the scheduling product.
 
-The Pages build has no backend and stores no shared database records. Polls are
-shared through URL-encoded poll links. Attendees can copy a response packet or
-open a prefilled GitHub issue. The organizer imports response packets, publishes
-the chosen result, copies a result summary, or downloads a CSV.
+The actual app is the full-stack build. It stores polls and responses through the
+D1-backed API, supports specific dates or recurring days of week, and keeps admin
+controls behind the private organizer link.
 
 ## Local Static Preview
 

@@ -30,9 +30,9 @@ test("server-renders the GatherRound app shell", async () => {
 
   const html = await response.text();
   assert.match(html, /<title>GatherRound<\/title>/i);
-  assert.match(html, /Find a meeting time/);
-  assert.match(html, /Launch poll/);
-  assert.match(html, /Candidate times/);
+  assert.match(html, /Find the best time to meet, once or every week/);
+  assert.match(html, /Create a scheduling poll/);
+  assert.match(html, /Respond to a poll/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton|Your site is taking shape/i);
 });
 

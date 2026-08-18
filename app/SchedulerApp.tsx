@@ -1,18 +1,23 @@
 "use client";
 
 import {
+  CalendarDays,
   CalendarPlus,
   Check,
   Clipboard,
   Download,
   Link as LinkIcon,
   Loader2,
+  Repeat,
+  Search,
   Sparkles,
   Trophy,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 type Availability = "yes" | "maybe" | "no";
+type PollType = "specific" | "weekly";
+type HomeMode = "start" | "create" | "respond";
 
 type PollOption = {
   id: string;
@@ -36,6 +41,7 @@ type PollPayload = {
     description: string;
     organizerName: string;
     timezone: string;
+    pollType: PollType;
     status: string;
     selectedOptionId: string | null;
     publishNote: string;
@@ -49,6 +55,8 @@ type PollPayload = {
 type DraftOption = {
   id: string;
   startsAt: string;
+  dayOfWeek: number;
+  time: string;
   label: string;
 };
 
@@ -69,12 +77,35 @@ const availabilityScore: Record<Availability, number> = {
   no: 0,
 };
 
+const weekdays = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
+
 function localInputValue(date: Date) {
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
   return local.toISOString().slice(0, 16);
 }
 
-function defaultOptions() {
+function optionFromInput(value: string) {
+  return value ? new Date(value).toISOString() : "";
+}
+
+function nextWeeklyDate(dayOfWeek: number, time: string) {
+  const [hours = "9", minutes = "00"] = time.split(":");
+  const date = new Date();
+  date.setHours(Number(hours), Number(minutes), 0, 0);
+  const daysAhead = (dayOfWeek - date.getDay() + 7) % 7 || 7;
+  date.setDate(date.getDate() + daysAhead);
+  return date.toISOString();
+}
+
+function defaultSpecificOptions(): DraftOption[] {
   const base = new Date();
   base.setDate(base.getDate() + 2);
   base.setMinutes(0, 0, 0);
@@ -86,21 +117,35 @@ function defaultOptions() {
     return {
       id: crypto.randomUUID(),
       startsAt: date.toISOString(),
-      label: index === 0 ? "Coffee window" : index === 1 ? "Deep work slot" : "Wrap-up slot",
+      dayOfWeek: date.getDay(),
+      time: `${String(hour).padStart(2, "0")}:00`,
+      label: index === 0 ? "Morning option" : index === 1 ? "Afternoon option" : "Late-day option",
     };
   });
 }
 
-function optionFromInput(value: string) {
-  return value ? new Date(value).toISOString() : "";
+function defaultWeeklyOptions(): DraftOption[] {
+  return [
+    { dayOfWeek: 1, time: "10:00", label: "Monday morning" },
+    { dayOfWeek: 3, time: "13:00", label: "Wednesday lunch-ish" },
+    { dayOfWeek: 4, time: "15:00", label: "Thursday afternoon" },
+  ].map((option) => ({
+    id: crypto.randomUUID(),
+    startsAt: nextWeeklyDate(option.dayOfWeek, option.time),
+    ...option,
+  }));
 }
 
-function formatOption(option: Pick<PollOption, "startsAt" | "label">, timezone?: string) {
+function formatOption(
+  option: Pick<PollOption, "startsAt" | "label">,
+  timezone: string,
+  pollType: PollType,
+) {
   const date = new Date(option.startsAt);
   const day = new Intl.DateTimeFormat(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
+    weekday: pollType === "weekly" ? "long" : "short",
+    month: pollType === "weekly" ? undefined : "short",
+    day: pollType === "weekly" ? undefined : "numeric",
     timeZone: timezone,
   }).format(date);
   const time = new Intl.DateTimeFormat(undefined, {
@@ -108,6 +153,7 @@ function formatOption(option: Pick<PollOption, "startsAt" | "label">, timezone?:
     minute: "2-digit",
     timeZone: timezone,
   }).format(date);
+
   return { day, time, label: option.label };
 }
 
@@ -139,6 +185,20 @@ function readUrlState() {
   };
 }
 
+function parsePollId(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "";
+  }
+
+  try {
+    const url = new URL(trimmed);
+    return url.searchParams.get("poll") ?? trimmed;
+  } catch {
+    return trimmed;
+  }
+}
+
 function rankOptions(options: PollOption[], responses: PollResponse[]) {
   return options
     .map((option) => {
@@ -158,15 +218,19 @@ function rankOptions(options: PollOption[], responses: PollResponse[]) {
 }
 
 export default function SchedulerApp() {
+  const initialUrlState = readUrlState();
+  const [mode, setMode] = useState<HomeMode>(initialUrlState.pollId ? "respond" : "start");
   const [draft, setDraft] = useState({
     title: "Strategy sync",
     description: "Pick the times that feel good, mark maybes honestly, and leave any useful constraints.",
     organizerName: "Alex",
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
+    pollType: "specific" as PollType,
   });
-  const [draftOptions, setDraftOptions] = useState<DraftOption[]>(() => defaultOptions());
+  const [draftOptions, setDraftOptions] = useState<DraftOption[]>(() => defaultSpecificOptions());
+  const [pollLookup, setPollLookup] = useState("");
   const [poll, setPoll] = useState<PollPayload | null>(null);
-  const [adminToken, setAdminToken] = useState(() => readUrlState().admin);
+  const [adminToken, setAdminToken] = useState(initialUrlState.admin);
   const [loadingPoll, setLoadingPoll] = useState(false);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
@@ -183,9 +247,10 @@ export default function SchedulerApp() {
   );
   const top = ranked[0];
   const origin = typeof window === "undefined" ? "" : window.location.origin;
-  const guestLink = poll ? `${origin}/?poll=${poll.poll.id}` : "";
-  const ownerLink = poll && adminToken ? `${guestLink}&admin=${adminToken}` : "";
-  const bestOption = poll?.options.find((option) => option.id === poll.poll.selectedOptionId) ?? top?.option;
+  const attendeeLink = poll ? `${origin}/?poll=${poll.poll.id}` : "";
+  const adminLink = poll && adminToken ? `${attendeeLink}&admin=${adminToken}` : "";
+  const bestOption =
+    poll?.options.find((option) => option.id === poll.poll.selectedOptionId) ?? top?.option;
 
   const applyPoll = useCallback((nextPoll: PollPayload) => {
     const nextRanked = rankOptions(nextPoll.options, nextPoll.responses);
@@ -201,7 +266,7 @@ export default function SchedulerApp() {
     setLoadingPoll(true);
     try {
       const suffix = admin ? `?admin=${encodeURIComponent(admin)}` : "";
-      const response = await fetch(`/api/polls/${pollId}${suffix}`);
+      const response = await fetch(`/api/polls/${encodeURIComponent(pollId)}${suffix}`);
       const payload = await parseResponse(response);
 
       if (!response.ok) {
@@ -226,20 +291,33 @@ export default function SchedulerApp() {
     }
   }, [loadPoll]);
 
+  function switchPollType(pollType: PollType) {
+    setDraft((current) => ({ ...current, pollType }));
+    setDraftOptions(pollType === "weekly" ? defaultWeeklyOptions() : defaultSpecificOptions());
+  }
+
   async function createNewPoll() {
     setBusy(true);
     setToast(null);
     try {
+      const options = draftOptions.map((option) => {
+        if (draft.pollType === "weekly") {
+          return {
+            startsAt: nextWeeklyDate(option.dayOfWeek, option.time),
+            label: option.label,
+          };
+        }
+
+        return {
+          startsAt: option.startsAt,
+          label: option.label,
+        };
+      });
+
       const response = await fetch("/api/polls", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          ...draft,
-          options: draftOptions.map((option) => ({
-            startsAt: option.startsAt,
-            label: option.label,
-          })),
-        }),
+        body: JSON.stringify({ ...draft, options }),
       });
       const payload = await parseResponse(response);
 
@@ -253,10 +331,22 @@ export default function SchedulerApp() {
       applyPoll(created);
       setAdminToken(token);
       window.history.replaceState(null, "", `/?poll=${created.poll.id}&admin=${token}`);
-      setToast({ tone: "good", message: "Poll launched. The links are ready." });
+      setToast({ tone: "good", message: "Poll created. Share the attendee link when you are ready." });
     } finally {
       setBusy(false);
     }
+  }
+
+  async function openPollFromLookup() {
+    const pollId = parsePollId(pollLookup);
+    if (!pollId) {
+      setToast({ tone: "bad", message: "Paste an attendee link or poll ID first." });
+      return;
+    }
+
+    window.history.replaceState(null, "", `/?poll=${pollId}`);
+    setAdminToken("");
+    await loadPoll(pollId);
   }
 
   async function submitResponse() {
@@ -291,13 +381,13 @@ export default function SchedulerApp() {
       setReplyName("");
       setReplyEmail("");
       setReplyNote("");
-      setToast({ tone: "good", message: "Availability saved. Beautifully decisive." });
+      setToast({ tone: "good", message: "Availability saved. Thanks for making scheduling less weird." });
     } finally {
       setBusy(false);
     }
   }
 
-  async function publishResult() {
+  async function finalizeResult() {
     if (!poll || !adminToken) {
       return;
     }
@@ -322,8 +412,7 @@ export default function SchedulerApp() {
       }
 
       applyPoll(payload as PollPayload);
-      setToast({ tone: "good", message: "Result published. Share link copied next." });
-      await copyText(summaryText(payload as PollPayload));
+      setToast({ tone: "good", message: "Final time saved. The attendee link now shows the result." });
     } finally {
       setBusy(false);
     }
@@ -331,11 +420,33 @@ export default function SchedulerApp() {
 
   function addOption() {
     const last = draftOptions[draftOptions.length - 1];
+    if (draft.pollType === "weekly") {
+      const dayOfWeek = last ? (last.dayOfWeek + 1) % 7 : 1;
+      const time = last?.time ?? "10:00";
+      setDraftOptions([
+        ...draftOptions,
+        {
+          id: crypto.randomUUID(),
+          startsAt: nextWeeklyDate(dayOfWeek, time),
+          dayOfWeek,
+          time,
+          label: "",
+        },
+      ]);
+      return;
+    }
+
     const date = last?.startsAt ? new Date(last.startsAt) : new Date();
     date.setDate(date.getDate() + 1);
     setDraftOptions([
       ...draftOptions,
-      { id: crypto.randomUUID(), startsAt: date.toISOString(), label: "" },
+      {
+        id: crypto.randomUUID(),
+        startsAt: date.toISOString(),
+        dayOfWeek: date.getDay(),
+        time: localInputValue(date).slice(11),
+        label: "",
+      },
     ]);
   }
 
@@ -345,22 +456,28 @@ export default function SchedulerApp() {
     );
   }
 
-  async function copyText(text: string) {
+  async function copyText(text: string, message = "Copied.") {
     await navigator.clipboard.writeText(text);
-    setToast({ tone: "good", message: "Copied." });
+    setToast({ tone: "good", message });
   }
 
   function summaryText(source = poll) {
     if (!source) {
       return "";
     }
-    const winner = source.options.find((option) => option.id === source.poll.selectedOptionId) ?? rankOptions(source.options, source.responses)[0]?.option;
-    const winnerText = winner ? `${formatOption(winner, source.poll.timezone).day} at ${formatOption(winner, source.poll.timezone).time}` : "No winning time yet";
+    const winner =
+      source.options.find((option) => option.id === source.poll.selectedOptionId) ??
+      rankOptions(source.options, source.responses)[0]?.option;
+    const winnerText = winner
+      ? `${formatOption(winner, source.poll.timezone, source.poll.pollType).day} at ${
+          formatOption(winner, source.poll.timezone, source.poll.pollType).time
+        }`
+      : "No winning time yet";
     return [
       `${source.poll.title}`,
-      `Result: ${winnerText}`,
+      `Final time: ${winnerText}`,
       source.poll.publishNote ? `Note: ${source.poll.publishNote}` : "",
-      `Poll: ${guestLink || `${origin}/?poll=${source.poll.id}`}`,
+      `Poll: ${attendeeLink || `${origin}/?poll=${source.poll.id}`}`,
     ]
       .filter(Boolean)
       .join("\n");
@@ -370,7 +487,14 @@ export default function SchedulerApp() {
     if (!poll) {
       return "";
     }
-    const header = ["Name", ...poll.options.map((option) => `${formatOption(option, poll.poll.timezone).day} ${formatOption(option, poll.poll.timezone).time}`), "Feedback"];
+    const header = [
+      "Name",
+      ...poll.options.map((option) => {
+        const formatted = formatOption(option, poll.poll.timezone, poll.poll.pollType);
+        return `${formatted.day} ${formatted.time}`;
+      }),
+      "Feedback",
+    ];
     const rows = poll.responses.map((response) => [
       response.name,
       ...poll.options.map((option) => {
@@ -405,10 +529,10 @@ export default function SchedulerApp() {
 
   return (
     <main className="app-shell">
-      <section className="masthead" aria-label="GatherRound">
+      <section className="masthead compact" aria-label="GatherRound">
         <div>
           <p className="brand"><Sparkles size={18} aria-hidden="true" /> GatherRound</p>
-          <h1>Find a meeting time without making everyone do calendar theater.</h1>
+          <h1>Find the best time to meet, once or every week.</h1>
         </div>
         <div className="signal-strip" aria-hidden="true">
           {["Mon", "Tue", "Wed", "Thu", "Fri"].map((day, index) => (
@@ -426,8 +550,8 @@ export default function SchedulerApp() {
           poll={poll}
           ranked={ranked}
           bestOption={bestOption}
-          guestLink={guestLink}
-          ownerLink={ownerLink}
+          attendeeLink={attendeeLink}
+          adminLink={adminLink}
           adminToken={adminToken}
           replyName={replyName}
           replyEmail={replyEmail}
@@ -443,13 +567,117 @@ export default function SchedulerApp() {
           setSelectedOptionId={setSelectedOptionId}
           setPublishNote={setPublishNote}
           submitResponse={submitResponse}
-          publishResult={publishResult}
+          finalizeResult={finalizeResult}
           copyText={copyText}
           summaryText={summaryText}
           downloadCsv={downloadCsv}
         />
       ) : (
-        <section className="workspace creator">
+        <HomeWorkspace
+          mode={mode}
+          setMode={setMode}
+          draft={draft}
+          setDraft={setDraft}
+          draftOptions={draftOptions}
+          pollLookup={pollLookup}
+          setPollLookup={setPollLookup}
+          switchPollType={switchPollType}
+          updateDraftOption={updateDraftOption}
+          addOption={addOption}
+          createNewPoll={createNewPoll}
+          openPollFromLookup={openPollFromLookup}
+          busy={busy}
+        />
+      )}
+    </main>
+  );
+}
+
+function HomeWorkspace({
+  mode,
+  setMode,
+  draft,
+  setDraft,
+  draftOptions,
+  pollLookup,
+  setPollLookup,
+  switchPollType,
+  updateDraftOption,
+  addOption,
+  createNewPoll,
+  openPollFromLookup,
+  busy,
+}: {
+  mode: HomeMode;
+  setMode: (mode: HomeMode) => void;
+  draft: {
+    title: string;
+    description: string;
+    organizerName: string;
+    timezone: string;
+    pollType: PollType;
+  };
+  setDraft: React.Dispatch<React.SetStateAction<{
+    title: string;
+    description: string;
+    organizerName: string;
+    timezone: string;
+    pollType: PollType;
+  }>>;
+  draftOptions: DraftOption[];
+  pollLookup: string;
+  setPollLookup: (value: string) => void;
+  switchPollType: (pollType: PollType) => void;
+  updateDraftOption: (id: string, value: Partial<DraftOption>) => void;
+  addOption: () => void;
+  createNewPoll: () => Promise<void>;
+  openPollFromLookup: () => Promise<void>;
+  busy: boolean;
+}) {
+  return (
+    <section className="workspace home">
+      <div className="choice-panel">
+        <button
+          className={`choice-card ${mode === "create" ? "active" : ""}`}
+          type="button"
+          onClick={() => setMode("create")}
+        >
+          <CalendarPlus size={22} aria-hidden="true" />
+          <strong>Create a scheduling poll</strong>
+          <span>Pick available times, share an attendee link, and use the admin link to finalize the winner.</span>
+        </button>
+        <button
+          className={`choice-card ${mode === "respond" ? "active" : ""}`}
+          type="button"
+          onClick={() => setMode("respond")}
+        >
+          <Search size={22} aria-hidden="true" />
+          <strong>Respond to a poll</strong>
+          <span>Paste an attendee link or poll ID. Your response saves directly to the poll.</span>
+        </button>
+      </div>
+
+      {mode === "respond" ? (
+        <div className="editor-panel single-panel">
+          <p className="section-kicker"><Search size={18} aria-hidden="true" /> Respond</p>
+          <label>
+            Attendee link or poll ID
+            <input
+              value={pollLookup}
+              onChange={(event) => setPollLookup(event.target.value)}
+              placeholder="https://.../?poll=..."
+            />
+          </label>
+          <p className="helper-copy">
+            You do not need to import anything or open a GitHub issue. In the real app, responses save directly.
+          </p>
+          <button className="primary" type="button" onClick={openPollFromLookup} disabled={busy}>
+            {busy ? <Loader2 className="spin" size={18} aria-hidden="true" /> : <Search size={18} aria-hidden="true" />}
+            Open poll
+          </button>
+        </div>
+      ) : mode === "create" ? (
+        <section className="workspace creator nested">
           <div className="editor-panel">
             <div className="section-kicker"><CalendarPlus size={18} aria-hidden="true" /> New poll</div>
             <label>
@@ -490,39 +718,91 @@ export default function SchedulerApp() {
           </div>
 
           <div className="times-panel">
-            <div className="section-kicker"><Trophy size={18} aria-hidden="true" /> Candidate times</div>
+            <div className="section-kicker"><CalendarDays size={18} aria-hidden="true" /> Available times</div>
+            <div className="mode-toggle" aria-label="Poll time type">
+              <button
+                className={draft.pollType === "specific" ? "active" : ""}
+                type="button"
+                onClick={() => switchPollType("specific")}
+              >
+                <CalendarDays size={16} aria-hidden="true" />
+                Specific dates
+              </button>
+              <button
+                className={draft.pollType === "weekly" ? "active" : ""}
+                type="button"
+                onClick={() => switchPollType("weekly")}
+              >
+                <Repeat size={16} aria-hidden="true" />
+                Days of week
+              </button>
+            </div>
+            <p className="helper-copy">
+              {draft.pollType === "weekly"
+                ? "Use this for recurring meetings when you care about the best weekday and time."
+                : "Use this for one-off meetings when each option is a specific calendar date."}
+            </p>
             <div className="option-stack">
               {draftOptions.map((option) => (
-                <div className="draft-option" key={option.id}>
-                  <input
-                    type="datetime-local"
-                    value={localInputValue(new Date(option.startsAt))}
-                    onChange={(event) =>
-                      updateDraftOption(option.id, { startsAt: optionFromInput(event.target.value) })
-                    }
-                    aria-label="Candidate time"
-                  />
+                <div className={draft.pollType === "weekly" ? "draft-option weekly" : "draft-option"} key={option.id}>
+                  {draft.pollType === "weekly" ? (
+                    <>
+                      <select
+                        value={option.dayOfWeek}
+                        onChange={(event) =>
+                          updateDraftOption(option.id, { dayOfWeek: Number(event.target.value) })
+                        }
+                        aria-label="Available weekday"
+                      >
+                        {weekdays.map((day, index) => (
+                          <option key={day} value={index}>{day}</option>
+                        ))}
+                      </select>
+                      <input
+                        type="time"
+                        value={option.time}
+                        onChange={(event) => updateDraftOption(option.id, { time: event.target.value })}
+                        aria-label="Available time"
+                      />
+                    </>
+                  ) : (
+                    <input
+                      type="datetime-local"
+                      value={localInputValue(new Date(option.startsAt))}
+                      onChange={(event) =>
+                        updateDraftOption(option.id, { startsAt: optionFromInput(event.target.value) })
+                      }
+                      aria-label="Available date and time"
+                    />
+                  )}
                   <input
                     value={option.label}
                     onChange={(event) => updateDraftOption(option.id, { label: event.target.value })}
-                    placeholder="Label"
+                    placeholder="Optional label"
                     maxLength={120}
-                    aria-label="Candidate label"
+                    aria-label="Available time label"
                   />
                 </div>
               ))}
             </div>
             <div className="action-row">
-              <button className="secondary" type="button" onClick={addOption}>Add time</button>
+              <button className="secondary" type="button" onClick={addOption}>Add available time</button>
               <button className="primary" type="button" onClick={createNewPoll} disabled={busy}>
                 {busy ? <Loader2 className="spin" size={18} aria-hidden="true" /> : <CalendarPlus size={18} aria-hidden="true" />}
-                Launch poll
+                Create poll
               </button>
             </div>
           </div>
         </section>
+      ) : (
+        <div className="editor-panel single-panel">
+          <p className="section-kicker"><Sparkles size={18} aria-hidden="true" /> Start here</p>
+          <p className="description">
+            Create a poll when you are organizing. Respond to a poll when someone has sent you an attendee link.
+          </p>
+        </div>
       )}
-    </main>
+    </section>
   );
 }
 
@@ -530,8 +810,8 @@ function PollWorkspace({
   poll,
   ranked,
   bestOption,
-  guestLink,
-  ownerLink,
+  attendeeLink,
+  adminLink,
   adminToken,
   replyName,
   replyEmail,
@@ -547,7 +827,7 @@ function PollWorkspace({
   setSelectedOptionId,
   setPublishNote,
   submitResponse,
-  publishResult,
+  finalizeResult,
   copyText,
   summaryText,
   downloadCsv,
@@ -555,8 +835,8 @@ function PollWorkspace({
   poll: PollPayload;
   ranked: ReturnType<typeof rankOptions>;
   bestOption: PollOption | undefined;
-  guestLink: string;
-  ownerLink: string;
+  attendeeLink: string;
+  adminLink: string;
   adminToken: string;
   replyName: string;
   replyEmail: string;
@@ -572,23 +852,30 @@ function PollWorkspace({
   setSelectedOptionId: (value: string | null) => void;
   setPublishNote: (value: string) => void;
   submitResponse: () => Promise<void>;
-  publishResult: () => Promise<void>;
-  copyText: (value: string) => Promise<void>;
+  finalizeResult: () => Promise<void>;
+  copyText: (value: string, message?: string) => Promise<void>;
   summaryText: () => string;
   downloadCsv: () => void;
 }) {
-  const selectedLabel = bestOption ? formatOption(bestOption, poll.poll.timezone) : null;
+  const selectedLabel = bestOption
+    ? formatOption(bestOption, poll.poll.timezone, poll.poll.pollType)
+    : null;
+  const isAdmin = Boolean(adminToken);
 
   return (
     <section className="workspace poll">
       <div className="poll-main">
         <div className="poll-title-row">
           <div>
-            <p className="section-kicker">{poll.poll.organizerName || "Host"} is gathering availability</p>
+            <p className="section-kicker">
+              {poll.poll.organizerName || "Host"} is gathering availability
+            </p>
             <h2>{poll.poll.title}</h2>
             {poll.poll.description ? <p className="description">{poll.poll.description}</p> : null}
           </div>
-          <span className={`status ${poll.poll.status}`}>{poll.poll.status === "published" ? "Result published" : "Collecting"}</span>
+          <span className={`status ${poll.poll.status}`}>
+            {poll.poll.status === "published" ? "Finalized" : "Collecting"}
+          </span>
         </div>
 
         {poll.poll.status === "published" && selectedLabel ? (
@@ -603,14 +890,14 @@ function PollWorkspace({
 
         <div className="result-grid">
           {ranked.map(({ option, counts, score }, index) => {
-            const formatted = formatOption(option, poll.poll.timezone);
+            const formatted = formatOption(option, poll.poll.timezone, poll.poll.pollType);
             const maxScore = Math.max(1, (poll.responses.length || 1) * 2);
             return (
               <button
                 className={`time-result ${option.id === selectedOptionId ? "selected" : ""}`}
                 key={option.id}
                 type="button"
-                onClick={() => setSelectedOptionId(option.id)}
+                onClick={isAdmin ? () => setSelectedOptionId(option.id) : undefined}
               >
                 <span className="rank">#{index + 1}</span>
                 <strong>{formatted.day}</strong>
@@ -624,7 +911,7 @@ function PollWorkspace({
         </div>
 
         <div className="response-box">
-          <div className="section-kicker"><Check size={18} aria-hidden="true" /> Your availability</div>
+          <div className="section-kicker"><Check size={18} aria-hidden="true" /> Respond</div>
           <div className="two-up">
             <label>
               Name
@@ -637,7 +924,7 @@ function PollWorkspace({
           </div>
           <div className="vote-list">
             {poll.options.map((option) => {
-              const formatted = formatOption(option, poll.poll.timezone);
+              const formatted = formatOption(option, poll.poll.timezone, poll.poll.pollType);
               return (
                 <div className="vote-row" key={option.id}>
                   <div>
@@ -671,37 +958,40 @@ function PollWorkspace({
           </label>
           <button className="primary full" type="button" onClick={submitResponse} disabled={busy}>
             {busy ? <Loader2 className="spin" size={18} aria-hidden="true" /> : <Check size={18} aria-hidden="true" />}
-            Save availability
+            Save my availability
           </button>
         </div>
       </div>
 
       <aside className="side-panel">
         <div className="share-panel">
-          <p className="section-kicker"><LinkIcon size={18} aria-hidden="true" /> Share</p>
-          <button className="secondary full" type="button" onClick={() => copyText(guestLink)}>
+          <p className="section-kicker"><LinkIcon size={18} aria-hidden="true" /> Links</p>
+          <button className="secondary full" type="button" onClick={() => copyText(attendeeLink, "Attendee link copied.")}>
             <Clipboard size={18} aria-hidden="true" />
             Copy attendee link
           </button>
-          {adminToken ? (
-            <button className="secondary full" type="button" onClick={() => copyText(ownerLink)}>
-              <Clipboard size={18} aria-hidden="true" />
-              Copy admin link
-            </button>
+          <p className="helper-copy">
+            Send this to people who should respond. They can only submit availability.
+          </p>
+          {isAdmin ? (
+            <>
+              <button className="secondary full" type="button" onClick={() => copyText(adminLink, "Admin link copied.")}>
+                <Clipboard size={18} aria-hidden="true" />
+                Copy admin link
+              </button>
+              <p className="helper-copy">
+                Keep this private. It unlocks organizer controls like finalizing the result and exporting responses.
+              </p>
+            </>
           ) : null}
-          <button className="secondary full" type="button" onClick={() => copyText(summaryText())}>
-            <Clipboard size={18} aria-hidden="true" />
-            Copy result summary
-          </button>
-          <button className="secondary full" type="button" onClick={downloadCsv}>
-            <Download size={18} aria-hidden="true" />
-            Download CSV
-          </button>
         </div>
 
-        {adminToken ? (
+        {isAdmin ? (
           <div className="publish-panel">
-            <p className="section-kicker"><Trophy size={18} aria-hidden="true" /> Publish</p>
+            <p className="section-kicker"><Trophy size={18} aria-hidden="true" /> Organizer controls</p>
+            <p className="helper-copy">
+              Results update automatically as people respond. Finalizing saves the chosen time and shows it at the top of the attendee link.
+            </p>
             <label>
               Chosen time
               <select
@@ -709,7 +999,7 @@ function PollWorkspace({
                 onChange={(event) => setSelectedOptionId(event.target.value)}
               >
                 {poll.options.map((option) => {
-                  const formatted = formatOption(option, poll.poll.timezone);
+                  const formatted = formatOption(option, poll.poll.timezone, poll.poll.pollType);
                   return (
                     <option key={option.id} value={option.id}>
                       {formatted.day} {formatted.time}
@@ -725,14 +1015,30 @@ function PollWorkspace({
                 onChange={(event) => setPublishNote(event.target.value)}
                 rows={3}
                 maxLength={1000}
+                placeholder="Optional note people will see with the final time"
               />
             </label>
-            <button className="primary full" type="button" onClick={publishResult} disabled={busy}>
+            <button className="primary full" type="button" onClick={finalizeResult} disabled={busy}>
               {busy ? <Loader2 className="spin" size={18} aria-hidden="true" /> : <Trophy size={18} aria-hidden="true" />}
-              Publish result
+              Finalize chosen time
+            </button>
+            <button className="secondary full" type="button" onClick={() => copyText(summaryText(), "Summary copied.")}>
+              <Clipboard size={18} aria-hidden="true" />
+              Copy summary
+            </button>
+            <button className="secondary full" type="button" onClick={downloadCsv}>
+              <Download size={18} aria-hidden="true" />
+              Download responses CSV
             </button>
           </div>
-        ) : null}
+        ) : (
+          <div className="publish-panel">
+            <p className="section-kicker"><Trophy size={18} aria-hidden="true" /> Results</p>
+            <p className="helper-copy">
+              The organizer sees admin-only controls for finalizing a time. As an attendee, you just save your availability here.
+            </p>
+          </div>
+        )}
 
         <div className="feedback-panel">
           <p className="section-kicker">{poll.responses.length} responses</p>

@@ -6,7 +6,7 @@
     <title>GatherRound</title>
     <meta
       name="description"
-      content="A friendly static scheduling poll for finding the best time to meet."
+      content="GatherRound is a friendly scheduling poll app for finding the best time to meet."
     />
     <meta property="og:title" content="GatherRound" />
     <meta property="og:description" content="Find the time everyone can make." />
@@ -18,8 +18,12 @@
     <main class="shell">
       <section class="masthead" aria-label="GatherRound">
         <div>
-          <p class="brand">✦ GatherRound</p>
-          <h1>Find a meeting time without making everyone do calendar theater.</h1>
+          <p class="brand">GatherRound</p>
+          <h1>Find the best time to meet, once or every week.</h1>
+          <p class="description">
+            The GitHub Pages version is the public project hub. The real scheduling
+            app needs a backend so polls and responses can save directly.
+          </p>
         </div>
         <div class="signal-strip" aria-hidden="true">
           <span style="--height: 42px">Mon</span>
@@ -30,135 +34,18 @@
         </div>
       </section>
 
-      <p id="toast" class="toast" hidden></p>
-
-      <section id="creator" class="workspace creator">
-        <div class="panel">
-          <p class="kicker">New poll</p>
-          <label>
-            Meeting name
-            <input id="title" maxlength="120" value="Strategy sync" />
-          </label>
-          <label>
-            Context
-            <textarea id="description" rows="4" maxlength="1200">Pick the times that feel good, mark maybes honestly, and leave any useful constraints.</textarea>
-          </label>
-          <div class="two-up">
-            <label>
-              Host
-              <input id="organizer" maxlength="120" value="Alex" />
-            </label>
-            <label>
-              Timezone
-              <input id="timezone" maxlength="80" />
-            </label>
-          </div>
-        </div>
-
-        <div class="panel">
-          <p class="kicker">Candidate times</p>
-          <div id="draft-options" class="option-stack"></div>
-          <div class="action-row">
-            <button id="add-option" class="secondary" type="button">Add time</button>
-            <button id="launch" class="primary" type="button">Launch poll</button>
-          </div>
-        </div>
-      </section>
-
-      <section id="poll-view" class="workspace poll" hidden>
-        <div class="poll-main">
-          <div class="poll-title-row">
-            <div>
-              <p id="host-line" class="kicker"></p>
-              <h2 id="poll-title"></h2>
-              <p id="poll-description" class="description"></p>
-            </div>
-            <span id="poll-status" class="status">Collecting</span>
-          </div>
-
-          <div id="winner" class="winner-banner" hidden></div>
-          <div id="results" class="result-grid"></div>
-
-          <div class="panel response-box">
-            <p class="kicker">Your availability</p>
-            <div class="two-up">
-              <label>
-                Name
-                <input id="reply-name" maxlength="120" />
-              </label>
-              <label>
-                Email
-                <input id="reply-email" maxlength="180" />
-              </label>
-            </div>
-            <div id="vote-list" class="vote-list"></div>
-            <label>
-              Notes
-              <textarea id="reply-note" rows="3" maxlength="1200"></textarea>
-            </label>
-            <div class="action-row split">
-              <button id="copy-response" class="primary" type="button">
-                Copy response packet
-              </button>
-              <button id="open-issue" class="secondary" type="button">
-                Open feedback issue
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <aside class="side-panel">
-          <div class="panel">
-            <p class="kicker">Share</p>
-            <button id="copy-poll" class="secondary full" type="button">
-              Copy poll link
-            </button>
-            <button id="copy-summary" class="secondary full" type="button">
-              Copy result summary
-            </button>
-            <button id="download-csv" class="secondary full" type="button">
-              Download CSV
-            </button>
-          </div>
-
-          <div class="panel">
-            <p class="kicker">Import feedback</p>
-            <label>
-              Paste response packets
-              <textarea
-                id="response-import"
-                rows="6"
-                placeholder="Paste one or more packets here"
-              ></textarea>
-            </label>
-            <button id="import-responses" class="primary full" type="button">
-              Import responses
-            </button>
-          </div>
-
-          <div class="panel">
-            <p class="kicker">Publish</p>
-            <label>
-              Chosen time
-              <select id="selected-option"></select>
-            </label>
-            <label>
-              Result note
-              <textarea id="publish-note" rows="3" maxlength="1000"></textarea>
-            </label>
-            <button id="publish-result" class="primary full" type="button">
-              Publish result
-            </button>
-          </div>
-
-          <div class="panel">
-            <p id="response-count" class="kicker">0 responses</p>
-            <div id="feedback-list" class="feedback-list"></div>
-          </div>
-        </aside>
+      <section class="workspace hub">
+        <a class="panel cta-panel" href="https://gatherround-scheduler.atropea677558.chatgpt.site/">
+          <p class="kicker">Real app</p>
+          <strong>Open GatherRound</strong>
+          <span>Create a scheduling poll, collect responses, and finalize the chosen time.</span>
+        </a>
+        <a class="panel cta-panel" href="https://github.com/anntropea-oss/gatherround-scheduler">
+          <p class="kicker">Source</p>
+          <strong>View the GitHub repo</strong>
+          <span>Use the full-stack code locally or connect it to backend-capable hosting.</span>
+        </a>
       </section>
     </main>
-
-    <script src="app.js"></script>
   </body>
 </html>

@@ -8,6 +8,7 @@ export const polls = sqliteTable("polls", {
   description: text("description").notNull().default(""),
   organizerName: text("organizer_name").notNull().default(""),
   timezone: text("timezone").notNull().default("UTC"),
+  pollType: text("poll_type").notNull().default("specific"),
   status: text("status").notNull().default("collecting"),
   selectedOptionId: text("selected_option_id"),
   publishNote: text("publish_note").notNull().default(""),

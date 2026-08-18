@@ -1,12 +1,14 @@
 import { env } from "cloudflare:workers";
 
 export type Availability = "yes" | "maybe" | "no";
+export type PollType = "specific" | "weekly";
 
 export type PollInput = {
   title: string;
   description: string;
   organizerName: string;
   timezone: string;
+  pollType?: PollType;
   options: Array<{ startsAt: string; label: string }>;
 };
 
@@ -24,6 +26,7 @@ type PollRow = {
   description: string;
   organizer_name: string;
   timezone: string;
+  poll_type?: string;
   status: string;
   selected_option_id: string | null;
   publish_note: string;
@@ -91,6 +94,7 @@ async function ensureSchema(database = db()) {
           description TEXT NOT NULL DEFAULT '',
           organizer_name TEXT NOT NULL DEFAULT '',
           timezone TEXT NOT NULL DEFAULT 'UTC',
+          poll_type TEXT NOT NULL DEFAULT 'specific',
           status TEXT NOT NULL DEFAULT 'collecting',
           selected_option_id TEXT,
           publish_note TEXT NOT NULL DEFAULT '',
@@ -131,7 +135,15 @@ async function ensureSchema(database = db()) {
       database.prepare("CREATE INDEX IF NOT EXISTS idx_response_slots_option_id ON response_slots(option_id)"),
       database.prepare("PRAGMA optimize"),
     ])
-    .then(() => undefined);
+    .then(async () => {
+      const columns = await database.prepare("PRAGMA table_info(polls)").all<{ name: string }>();
+      const hasPollType = (columns.results ?? []).some((column) => column.name === "poll_type");
+      if (!hasPollType) {
+        await database
+          .prepare("ALTER TABLE polls ADD COLUMN poll_type TEXT NOT NULL DEFAULT 'specific'")
+          .run();
+      }
+    });
 
   return schemaReady;
 }
@@ -144,6 +156,7 @@ export async function createPoll(input: PollInput) {
   const description = clean(input.description, 1200);
   const organizerName = clean(input.organizerName, 120);
   const timezone = clean(input.timezone, 80) || "UTC";
+  const pollType: PollType = input.pollType === "weekly" ? "weekly" : "specific";
   const rawOptions = input.options
     .map((option) => ({
       startsAt: clean(option.startsAt, 80),
@@ -164,9 +177,9 @@ export async function createPoll(input: PollInput) {
   const statements = [
     database
       .prepare(
-        "INSERT INTO polls (id, admin_token, title, description, organizer_name, timezone) VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT INTO polls (id, admin_token, title, description, organizer_name, timezone, poll_type) VALUES (?, ?, ?, ?, ?, ?, ?)",
       )
-      .bind(pollId, adminToken, title, description, organizerName, timezone),
+      .bind(pollId, adminToken, title, description, organizerName, timezone, pollType),
     ...rawOptions.map((option, index) =>
       database
         .prepare(
@@ -226,6 +239,7 @@ export async function getPoll(id: string, adminToken?: string | null) {
       description: poll.description,
       organizerName: poll.organizer_name,
       timezone: poll.timezone,
+      pollType: poll.poll_type === "weekly" ? "weekly" : "specific",
       status: poll.status,
       selectedOptionId: poll.selected_option_id,
       publishNote: poll.publish_note,

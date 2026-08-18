@@ -18,6 +18,7 @@ export async function POST(request: Request) {
       description: payload.description,
       organizerName: payload.organizerName,
       timezone: payload.timezone,
+      pollType: payload.pollType,
       options: Array.isArray(payload.options) ? payload.options : [],
     });
     return Response.json(result, { status: 201 });

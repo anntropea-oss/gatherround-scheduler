@@ -101,3 +101,35 @@
 - Files Changed: SOLUTIONS.md
 - Status: Workaround
 - Verification: `curl -I -L https://anntropea-oss.github.io/gatherround-scheduler/` returned HTTP 200 and the page body includes `GatherRound`, `Launch poll`, `styles.css`, and `app.js`.
+
+## [2026-08-18 18:34] Render Test Copy Drift
+- Problem: `npm test` failed because the server-rendered shell test still expected the old one-page copy: `Find a meeting time`, `Launch poll`, and `Candidate times`.
+- Root Cause: The app shell was redesigned around separate create/respond entry points and renamed available time language, but the test assertions were not updated with the product copy.
+- Solution: Updated the render test to assert the new home screen copy: `Find the best time to meet, once or every week`, `Create a scheduling poll`, and `Respond to a poll`.
+- Files Changed: tests/rendered-html.test.mjs, SOLUTIONS.md
+- Status: Resolved
+- Verification: `npm test` completed successfully after the assertion update.
+
+## [2026-08-18 18:38] Weekly Time Row Clipping
+- Problem: Browser verification showed the weekly available-time row fit the panel but clipped the native time input text and longer labels such as `Wednesday lunch-ish`.
+- Root Cause: The three-column weekly grid reserved too little space for the browser's native time control and the label input.
+- Solution: Rebalanced the weekly grid columns and set a minimum width for `input[type="time"]` inside weekly available-time rows.
+- Files Changed: app/globals.css, SOLUTIONS.md
+- Status: Resolved
+- Verification: Browser checks at 1280px and 390px showed no horizontal overflow, no controls outside the viewport, and readable weekly time rows.
+
+## [2026-08-18 18:38] Browser Verification Script Mismatches
+- Problem: Two browser verification commands failed during local UI checks: one used an unsupported `networkidle` wait state, and another redeclared a persistent REPL variable.
+- Root Cause: The browser wrapper differed from the documented wait-state support, and the Node REPL keeps top-level bindings between commands.
+- Solution: Re-ran the checks with the supported `load` wait state and reusable `globalThis` bindings.
+- Files Changed: SOLUTIONS.md
+- Status: Resolved
+- Verification: Subsequent desktop and mobile browser checks completed successfully.
+
+## [2026-08-18 19:13] Static Pages Workflow Confusion
+- Problem: The GitHub Pages entry point and README still described the static workaround with response packets, imports, GitHub issues, and publish-result controls after the real app had moved to direct response saving.
+- Root Cause: The earlier GitHub Pages fallback remained documented and user-facing even though the product direction returned to the full-stack app.
+- Solution: Replaced the Pages entry point with a project hub that links to the real app and updated the README to explain that GitHub Pages is static while the full-stack build is the actual scheduling product.
+- Files Changed: README.md, docs/index.html, docs/styles.css, SOLUTIONS.md
+- Status: Resolved
+- Verification: `rg` found none of the confusing workflow phrases in README.md, docs/index.html, app/SchedulerApp.tsx, or tests/rendered-html.test.mjs; `node --check docs/app.js`, `npm run lint`, and `npm test` completed successfully.

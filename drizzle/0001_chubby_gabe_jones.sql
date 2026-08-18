@@ -1,0 +1,1 @@
+ALTER TABLE `polls` ADD `poll_type` text DEFAULT 'specific' NOT NULL;

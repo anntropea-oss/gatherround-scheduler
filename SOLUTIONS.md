@@ -1,0 +1,39 @@
+## [2026-08-18 10:12] Sites Reference Path Mismatch
+- Problem: Attempted to open the Sites persistence reference from the wrong bundled path while adding durable poll storage.
+- Root Cause: The references live under `skills/sites-building/references/`, not directly under `skills/references/`.
+- Solution: Located the correct bundled reference files and followed the D1 persistence guidance from there.
+- Files Changed: SOLUTIONS.md
+- Status: Resolved
+- Verification: Successfully read the correct persistence and SQLite reference files before implementing database-backed polls.
+
+## [2026-08-18 10:12] NPM Audit Advisories
+- Problem: `npm install` reported 20 dependency vulnerability advisories in the installed dependency tree.
+- Root Cause: Unknown
+- Solution: No dependency security changes were applied because npm recommended `npm audit fix` and `npm audit fix --force`, which may alter transitive packages or introduce breaking changes outside the requested app build.
+- Files Changed: package.json, package-lock.json, SOLUTIONS.md
+- Status: Open
+- Verification: The advisories were reported by npm during dependency installation; app build, lint, smoke test, and render tests were validated separately.
+
+## [2026-08-18 10:12] CSS Build Failure
+- Problem: The production build failed because `app/globals.css` had an imbalanced brace, first as an unexpected closing brace and then as an unclosed root block after an overbroad cleanup.
+- Root Cause: Manual stylesheet patch left CSS block delimiters inconsistent.
+- Solution: Removed the extra closing brace at the end of the file and restored the closing brace for the `:root` block.
+- Files Changed: app/globals.css, SOLUTIONS.md
+- Status: Resolved
+- Verification: `npm run build` and `npm test` completed successfully after the fix.
+
+## [2026-08-18 10:12] React Hook Lint Failures
+- Problem: `npm run lint` failed in `app/SchedulerApp.tsx` due to strict React hook rules around synchronous state updates in effects and a function referenced before declaration.
+- Root Cause: Initial URL loading and derived vote defaults were handled with direct effect-driven state updates.
+- Solution: Initialized the admin token from URL state, moved poll application into an explicit helper, converted poll loading to a callback, deferred initial URL loading by one tick, and removed an unused prop.
+- Files Changed: app/SchedulerApp.tsx, SOLUTIONS.md
+- Status: Resolved
+- Verification: `npm run lint` completed successfully after the refactor.
+
+## [2026-08-18 10:12] Migration Regeneration Failure
+- Problem: `npm run db:generate` failed with `ENOENT: no such file or directory, open 'drizzle/meta/_journal.json'` while regenerating the D1 migration after adding indexes.
+- Root Cause: Individual generated migration files were deleted while the empty `drizzle/meta` folder remained, so Drizzle expected a journal file for an existing migration folder.
+- Solution: Removed the empty generated migration directories with `rmdir`, regenerated the migration, and confirmed the SQL includes the required indexes.
+- Files Changed: db/schema.ts, drizzle/0000_giant_gunslinger.sql, drizzle/meta/0000_snapshot.json, drizzle/meta/_journal.json, SOLUTIONS.md
+- Status: Resolved
+- Verification: `npm run db:generate` completed successfully and the generated SQL contains `idx_poll_options_poll_id`, `idx_responses_poll_id`, and `idx_response_slots_option_id`.

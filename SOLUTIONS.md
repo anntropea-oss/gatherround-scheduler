@@ -133,3 +133,11 @@
 - Files Changed: README.md, docs/index.html, docs/styles.css, SOLUTIONS.md
 - Status: Resolved
 - Verification: `rg` found none of the confusing workflow phrases in README.md, docs/index.html, app/SchedulerApp.tsx, or tests/rendered-html.test.mjs; `node --check docs/app.js`, `npm run lint`, and `npm test` completed successfully.
+
+## [2026-08-18 19:15] Owner-Only Preview Access
+- Problem: The deployed Sites URL returned HTTP 401 to an unauthenticated request, which means it works as a private preview but is not yet suitable for attendee links.
+- Root Cause: The site access policy is `custom` with only the owner account allowed.
+- Solution: Deployed the current version privately and identified that switching to a public/shared deployment requires explicit user approval.
+- Files Changed: SOLUTIONS.md
+- Status: Open
+- Verification: `curl -I -L https://gatherround-scheduler.atropea677558.chatgpt.site` returned HTTP 401; `get_site` reported `access_mode: custom` and `external_visitor_count: 0`.

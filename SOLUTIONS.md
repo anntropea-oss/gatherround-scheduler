@@ -141,3 +141,11 @@
 - Files Changed: SOLUTIONS.md
 - Status: Open
 - Verification: `curl -I -L https://gatherround-scheduler.atropea677558.chatgpt.site` returned HTTP 401; `get_site` reported `access_mode: custom` and `external_visitor_count: 0`.
+
+## [2026-08-18 19:15] Sites Remote Verification Auth
+- Problem: A final `git ls-remote sites` verification failed with `could not read Username` because the Sites remote requires per-command authentication.
+- Root Cause: The command was run without the short-lived Sites `http.extraHeader` credential.
+- Solution: Re-ran the remote check with the Sites bearer auth header.
+- Files Changed: SOLUTIONS.md
+- Status: Resolved
+- Verification: Authenticated `git ls-remote` confirmed both `origin/main` and `sites/main` at `14f914ad13f4cf0ce6e9845d057ee4a8c8961668`.

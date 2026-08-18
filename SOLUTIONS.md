@@ -93,3 +93,11 @@
 - Files Changed: .github/workflows/pages.yml, SOLUTIONS.md
 - Status: Resolved
 - Verification: Pending workflow deployment check after commit and push.
+
+## [2026-08-18 10:41] Pages Deployment Status Lag
+- Problem: GitHub Actions continued to report the explicit Pages deploy step as `in_progress` after the GitHub Pages URL began serving the deployed site with HTTP 200.
+- Root Cause: Unknown
+- Solution: Verified the public Pages URL directly and confirmed the expected GatherRound HTML is live.
+- Files Changed: SOLUTIONS.md
+- Status: Workaround
+- Verification: `curl -I -L https://anntropea-oss.github.io/gatherround-scheduler/` returned HTTP 200 and the page body includes `GatherRound`, `Launch poll`, `styles.css`, and `app.js`.

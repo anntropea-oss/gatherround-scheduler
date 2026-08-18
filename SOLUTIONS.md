@@ -45,3 +45,11 @@
 - Files Changed: app/SchedulerApp.tsx, app/page.tsx, app/globals.css, tests/rendered-html.test.mjs, SOLUTIONS.md
 - Status: Resolved
 - Verification: Final `npm run lint`, `npm test`, and the create/respond/read API smoke test all passed.
+
+## [2026-08-18 10:20] Sites Version Upload Retry
+- Problem: Saving a Sites version failed once while uploading the packaged archive to blob storage.
+- Root Cause: Transient upload request failure from the storage endpoint.
+- Solution: Retried `save_site_version` with the same pushed commit and archive.
+- Files Changed: SOLUTIONS.md
+- Status: Resolved
+- Verification: The retry saved version 2 successfully.

@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GatherRound</title>
+    <meta
+      name="description"
+      content="A friendly static scheduling poll for finding the best time to meet."
+    />
+    <meta property="og:title" content="GatherRound" />
+    <meta property="og:description" content="Find the time everyone can make." />
+    <meta property="og:image" content="og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="masthead" aria-label="GatherRound">
+        <div>
+          <p class="brand">✦ GatherRound</p>
+          <h1>Find a meeting time without making everyone do calendar theater.</h1>
+        </div>
+        <div class="signal-strip" aria-hidden="true">
+          <span style="--height: 42px">Mon</span>
+          <span style="--height: 58px">Tue</span>
+          <span style="--height: 76px">Wed</span>
+          <span style="--height: 94px">Thu</span>
+          <span style="--height: 110px">Fri</span>
+        </div>
+      </section>
+
+      <p id="toast" class="toast" hidden></p>
+
+      <section id="creator" class="workspace creator">
+        <div class="panel">
+          <p class="kicker">New poll</p>
+          <label>
+            Meeting name
+            <input id="title" maxlength="120" value="Strategy sync" />
+          </label>
+          <label>
+            Context
+            <textarea id="description" rows="4" maxlength="1200">Pick the times that feel good, mark maybes honestly, and leave any useful constraints.</textarea>
+          </label>
+          <div class="two-up">
+            <label>
+              Host
+              <input id="organizer" maxlength="120" value="Alex" />
+            </label>
+            <label>
+              Timezone
+              <input id="timezone" maxlength="80" />
+            </label>
+          </div>
+        </div>
+
+        <div class="panel">
+          <p class="kicker">Candidate times</p>
+          <div id="draft-options" class="option-stack"></div>
+          <div class="action-row">
+            <button id="add-option" class="secondary" type="button">Add time</button>
+            <button id="launch" class="primary" type="button">Launch poll</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="poll-view" class="workspace poll" hidden>
+        <div class="poll-main">
+          <div class="poll-title-row">
+            <div>
+              <p id="host-line" class="kicker"></p>
+              <h2 id="poll-title"></h2>
+              <p id="poll-description" class="description"></p>
+            </div>
+            <span id="poll-status" class="status">Collecting</span>
+          </div>
+
+          <div id="winner" class="winner-banner" hidden></div>
+          <div id="results" class="result-grid"></div>
+
+          <div class="panel response-box">
+            <p class="kicker">Your availability</p>
+            <div class="two-up">
+              <label>
+                Name
+                <input id="reply-name" maxlength="120" />
+              </label>
+              <label>
+                Email
+                <input id="reply-email" maxlength="180" />
+              </label>
+            </div>
+            <div id="vote-list" class="vote-list"></div>
+            <label>
+              Notes
+              <textarea id="reply-note" rows="3" maxlength="1200"></textarea>
+            </label>
+            <div class="action-row split">
+              <button id="copy-response" class="primary" type="button">
+                Copy response packet
+              </button>
+              <button id="open-issue" class="secondary" type="button">
+                Open feedback issue
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <aside class="side-panel">
+          <div class="panel">
+            <p class="kicker">Share</p>
+            <button id="copy-poll" class="secondary full" type="button">
+              Copy poll link
+            </button>
+            <button id="copy-summary" class="secondary full" type="button">
+              Copy result summary
+            </button>
+            <button id="download-csv" class="secondary full" type="button">
+              Download CSV
+            </button>
+          </div>
+
+          <div class="panel">
+            <p class="kicker">Import feedback</p>
+            <label>
+              Paste response packets
+              <textarea
+                id="response-import"
+                rows="6"
+                placeholder="Paste one or more packets here"
+              ></textarea>
+            </label>
+            <button id="import-responses" class="primary full" type="button">
+              Import responses
+            </button>
+          </div>
+
+          <div class="panel">
+            <p class="kicker">Publish</p>
+            <label>
+              Chosen time
+              <select id="selected-option"></select>
+            </label>
+            <label>
+              Result note
+              <textarea id="publish-note" rows="3" maxlength="1000"></textarea>
+            </label>
+            <button id="publish-result" class="primary full" type="button">
+              Publish result
+            </button>
+          </div>
+
+          <div class="panel">
+            <p id="response-count" class="kicker">0 responses</p>
+            <div id="feedback-list" class="feedback-list"></div>
+          </div>
+        </aside>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>

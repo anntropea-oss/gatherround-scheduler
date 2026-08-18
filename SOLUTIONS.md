@@ -53,3 +53,27 @@
 - Files Changed: SOLUTIONS.md
 - Status: Resolved
 - Verification: The retry saved version 2 successfully.
+
+## [2026-08-18 10:30] Wrong Initial Hosting Target
+- Problem: The first published version used a `chatgpt.site` deployment when the user expected a GitHub repository and GitHub Pages option.
+- Root Cause: The first implementation followed the default Sites hosting workflow for a database-backed app instead of confirming the user's preference for GitHub Pages.
+- Solution: Added a static GitHub Pages-compatible app under `docs/`, updated the README, and prepared the repo for GitHub Pages publishing.
+- Files Changed: docs/index.html, docs/404.html, docs/.nojekyll, docs/styles.css, docs/app.js, docs/og.png, README.md, SOLUTIONS.md
+- Status: Resolved
+- Verification: Static assets served locally from `docs/`, and `node --check docs/app.js` completed successfully.
+
+## [2026-08-18 10:30] GitHub Pages Static Hosting Limitation
+- Problem: The original D1-backed response collection flow cannot run on GitHub Pages because Pages does not provide a server runtime or database.
+- Root Cause: GitHub Pages is static hosting only.
+- Solution: Implemented a static feedback workflow using URL-encoded poll links, copyable response packets, importable response packets, CSV export, result summary publishing, and prefilled GitHub issue links.
+- Files Changed: docs/index.html, docs/styles.css, docs/app.js, README.md, SOLUTIONS.md
+- Status: Workaround
+- Verification: Static preview served HTML, CSS, JS, and social image successfully; JavaScript syntax validation passed.
+
+## [2026-08-18 10:30] Browser Smoke Test Dependency Missing
+- Problem: A scripted Playwright smoke test could not run because the repo does not include the `playwright` package.
+- Root Cause: Playwright was not installed as a project dependency.
+- Solution: Avoided adding a large dev dependency for this static conversion and verified with `node --check docs/app.js` plus local static server checks.
+- Files Changed: SOLUTIONS.md
+- Status: Workaround
+- Verification: Static server returned `200 OK` for `/`, `/app.js`, `/styles.css`, and `/og.png`.

@@ -165,3 +165,11 @@
 - Files Changed: app/SchedulerApp.tsx, SOLUTIONS.md
 - Status: Resolved
 - Verification: `npm run lint` and `npm test` completed successfully.
+
+## [2026-08-19 16:25] Bracketed API Path Git Add Failure
+- Problem: The first `git add` command for the organizer ownership commit failed with `zsh: no matches found: app/api/polls/[id]/route.ts`.
+- Root Cause: zsh treated `[id]` as a glob pattern because the path was not quoted.
+- Solution: Re-ran the command with the bracketed path quoted.
+- Files Changed: SOLUTIONS.md
+- Status: Resolved
+- Verification: The ownership changes were committed and pushed successfully after quoting the path.

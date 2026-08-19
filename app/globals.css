@@ -270,6 +270,12 @@ h2 {
   color: var(--mint-dark);
 }
 
+.status.closed {
+  background: #fff7df;
+  border-color: #e8c76e;
+  color: #705111;
+}
+
 .status.super {
   align-items: center;
   background: #eef3ff;
@@ -361,6 +367,21 @@ button:focus-visible {
   line-height: 1.4;
 }
 
+.recovery-note {
+  background: #fff7df;
+  border: 1px solid #e8c76e;
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+}
+
+.recovery-note span {
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
 .draft-option {
   display: grid;
   gap: 10px;
@@ -408,6 +429,22 @@ button:focus-visible {
   display: flex;
   gap: 12px;
   justify-content: flex-end;
+}
+
+.action-row.split {
+  justify-content: stretch;
+}
+
+.action-row.split button {
+  flex: 1 1 0;
+}
+
+.edit-box {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 14px;
+  padding: 14px;
 }
 
 .primary,

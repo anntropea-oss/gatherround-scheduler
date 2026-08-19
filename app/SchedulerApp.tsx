@@ -9,12 +9,15 @@ import {
   Download,
   Link as LinkIcon,
   ListChecks,
+  Lock,
   Loader2,
+  Pencil,
   Repeat,
   Search,
   ShieldCheck,
   Sparkles,
   Trophy,
+  Unlock,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -259,6 +262,45 @@ function rankOptions(options: PollOption[], responses: PollResponse[]) {
     .sort((left, right) => right.score - left.score || right.counts.yes - left.counts.yes);
 }
 
+function draftOptionsFromPoll(poll: PollPayload): DraftOption[] {
+  return poll.options.map((option) => {
+    const date = new Date(option.startsAt);
+    return {
+      id: option.id,
+      startsAt: option.startsAt,
+      dayOfWeek: date.getDay(),
+      time: localInputValue(date).slice(11),
+      label: option.label,
+    };
+  });
+}
+
+function payloadOptionsFromDraft(options: DraftOption[], pollType: PollType) {
+  return options.map((option) => {
+    if (pollType === "weekly") {
+      return {
+        startsAt: nextWeeklyDate(option.dayOfWeek, option.time),
+        label: option.label,
+      };
+    }
+
+    return {
+      startsAt: option.startsAt,
+      label: option.label,
+    };
+  });
+}
+
+function statusLabel(status: string) {
+  if (status === "published") {
+    return "Finalized";
+  }
+  if (status === "closed") {
+    return "Closed";
+  }
+  return "Collecting";
+}
+
 export default function SchedulerApp() {
   const initialUrlState = readUrlState();
   const [mode, setMode] = useState<HomeMode>(initialUrlState.pollId ? "respond" : "start");
@@ -286,6 +328,15 @@ export default function SchedulerApp() {
   const [myPolls, setMyPolls] = useState<PollSummary[]>([]);
   const [session, setSession] = useState<SessionInfo | null>(null);
   const [loadingMyPolls, setLoadingMyPolls] = useState(false);
+  const [editingPoll, setEditingPoll] = useState(false);
+  const [editDraft, setEditDraft] = useState({
+    title: "",
+    description: "",
+    organizerName: "",
+    timezone: "",
+    pollType: "specific" as PollType,
+  });
+  const [editDraftOptions, setEditDraftOptions] = useState<DraftOption[]>([]);
 
   const ranked = useMemo(
     () => (poll ? rankOptions(poll.options, poll.responses) : []),
@@ -306,6 +357,7 @@ export default function SchedulerApp() {
     );
     setSelectedOptionId(nextPoll.poll.selectedOptionId ?? nextRanked[0]?.option.id ?? null);
     setPublishNote(nextPoll.poll.publishNote);
+    setEditingPoll(false);
   }, []);
 
   const loadMyPolls = useCallback(async () => {
@@ -380,19 +432,7 @@ export default function SchedulerApp() {
     setBusy(true);
     setToast(null);
     try {
-      const options = draftOptions.map((option) => {
-        if (draft.pollType === "weekly") {
-          return {
-            startsAt: nextWeeklyDate(option.dayOfWeek, option.time),
-            label: option.label,
-          };
-        }
-
-        return {
-          startsAt: option.startsAt,
-          label: option.label,
-        };
-      });
+      const options = payloadOptionsFromDraft(draftOptions, draft.pollType);
 
       const response = await fetch("/api/polls", {
         method: "POST",
@@ -514,6 +554,96 @@ export default function SchedulerApp() {
     }
   }
 
+  function startEditPoll() {
+    if (!poll) {
+      return;
+    }
+
+    setEditDraft({
+      title: poll.poll.title,
+      description: poll.poll.description,
+      organizerName: poll.poll.organizerName,
+      timezone: poll.poll.timezone,
+      pollType: poll.poll.pollType,
+    });
+    setEditDraftOptions(draftOptionsFromPoll(poll));
+    setEditingPoll(true);
+  }
+
+  async function savePollChanges() {
+    if (!poll) {
+      return;
+    }
+
+    setBusy(true);
+    setToast(null);
+    try {
+      const response = await fetch(`/api/polls/${poll.poll.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          adminToken,
+          organizerKey,
+          title: editDraft.title,
+          description: editDraft.description,
+          organizerName: editDraft.organizerName,
+          timezone: editDraft.timezone,
+          pollType: editDraft.pollType,
+          options: poll.responses.length === 0
+            ? payloadOptionsFromDraft(editDraftOptions, editDraft.pollType)
+            : undefined,
+        }),
+      });
+      const payload = await parseResponse(response);
+
+      if (!response.ok) {
+        setToast({ tone: "bad", message: getErrorMessage(payload) });
+        return;
+      }
+
+      applyPoll(payload as PollPayload);
+      void loadMyPolls();
+      setToast({ tone: "good", message: "Poll changes saved." });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function setPollStatus(status: "collecting" | "closed") {
+    if (!poll) {
+      return;
+    }
+
+    setBusy(true);
+    setToast(null);
+    try {
+      const response = await fetch(`/api/polls/${poll.poll.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          adminToken,
+          organizerKey,
+          status,
+        }),
+      });
+      const payload = await parseResponse(response);
+
+      if (!response.ok) {
+        setToast({ tone: "bad", message: getErrorMessage(payload) });
+        return;
+      }
+
+      applyPoll(payload as PollPayload);
+      void loadMyPolls();
+      setToast({
+        tone: "good",
+        message: status === "closed" ? "Responses closed." : "Responses reopened.",
+      });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function addOption() {
     const last = draftOptions[draftOptions.length - 1];
     if (draft.pollType === "weekly") {
@@ -550,6 +680,44 @@ export default function SchedulerApp() {
     setDraftOptions((options) =>
       options.map((option) => (option.id === id ? { ...option, ...value } : option)),
     );
+  }
+
+  function updateEditDraftOption(id: string, value: Partial<DraftOption>) {
+    setEditDraftOptions((options) =>
+      options.map((option) => (option.id === id ? { ...option, ...value } : option)),
+    );
+  }
+
+  function addEditOption() {
+    const last = editDraftOptions[editDraftOptions.length - 1];
+    if (editDraft.pollType === "weekly") {
+      const dayOfWeek = last ? (last.dayOfWeek + 1) % 7 : 1;
+      const time = last?.time ?? "10:00";
+      setEditDraftOptions([
+        ...editDraftOptions,
+        {
+          id: crypto.randomUUID(),
+          startsAt: nextWeeklyDate(dayOfWeek, time),
+          dayOfWeek,
+          time,
+          label: "",
+        },
+      ]);
+      return;
+    }
+
+    const date = last?.startsAt ? new Date(last.startsAt) : new Date();
+    date.setDate(date.getDate() + 1);
+    setEditDraftOptions([
+      ...editDraftOptions,
+      {
+        id: crypto.randomUUID(),
+        startsAt: date.toISOString(),
+        dayOfWeek: date.getDay(),
+        time: localInputValue(date).slice(11),
+        label: "",
+      },
+    ]);
   }
 
   async function copyText(text: string, message = "Copied.") {
@@ -650,6 +818,9 @@ export default function SchedulerApp() {
           adminLink={adminLink}
           adminToken={adminToken}
           returnToOrganizerHome={returnToOrganizerHome}
+          editingPoll={editingPoll}
+          editDraft={editDraft}
+          editDraftOptions={editDraftOptions}
           replyName={replyName}
           replyEmail={replyEmail}
           replyNote={replyNote}
@@ -663,8 +834,16 @@ export default function SchedulerApp() {
           setVotes={setVotes}
           setSelectedOptionId={setSelectedOptionId}
           setPublishNote={setPublishNote}
+          setEditingPoll={setEditingPoll}
+          setEditDraft={setEditDraft}
+          setEditDraftOptions={setEditDraftOptions}
           submitResponse={submitResponse}
           finalizeResult={finalizeResult}
+          startEditPoll={startEditPoll}
+          savePollChanges={savePollChanges}
+          setPollStatus={setPollStatus}
+          updateEditDraftOption={updateEditDraftOption}
+          addEditOption={addEditOption}
           copyText={copyText}
           summaryText={summaryText}
           downloadCsv={downloadCsv}
@@ -808,7 +987,7 @@ function HomeWorkspace({
                   onClick={() => void openOrganizerPoll(summary)}
                 >
                   <strong>{summary.title}</strong>
-                  <span>{summary.organizerName || "Host"} · {summary.responseCount} responses · {summary.status === "published" ? "Finalized" : "Collecting"}</span>
+                  <span>{summary.organizerName || "Host"} · {summary.responseCount} responses · {statusLabel(summary.status)}</span>
                   {summary.description ? <small>{summary.description}</small> : null}
                 </button>
               ))
@@ -976,6 +1155,9 @@ function PollWorkspace({
   adminLink,
   adminToken,
   returnToOrganizerHome,
+  editingPoll,
+  editDraft,
+  editDraftOptions,
   replyName,
   replyEmail,
   replyNote,
@@ -989,8 +1171,16 @@ function PollWorkspace({
   setVotes,
   setSelectedOptionId,
   setPublishNote,
+  setEditingPoll,
+  setEditDraft,
+  setEditDraftOptions,
   submitResponse,
   finalizeResult,
+  startEditPoll,
+  savePollChanges,
+  setPollStatus,
+  updateEditDraftOption,
+  addEditOption,
   copyText,
   summaryText,
   downloadCsv,
@@ -1002,6 +1192,15 @@ function PollWorkspace({
   adminLink: string;
   adminToken: string;
   returnToOrganizerHome: () => void;
+  editingPoll: boolean;
+  editDraft: {
+    title: string;
+    description: string;
+    organizerName: string;
+    timezone: string;
+    pollType: PollType;
+  };
+  editDraftOptions: DraftOption[];
   replyName: string;
   replyEmail: string;
   replyNote: string;
@@ -1015,8 +1214,22 @@ function PollWorkspace({
   setVotes: React.Dispatch<React.SetStateAction<Record<string, Availability>>>;
   setSelectedOptionId: (value: string | null) => void;
   setPublishNote: (value: string) => void;
+  setEditingPoll: (value: boolean) => void;
+  setEditDraft: React.Dispatch<React.SetStateAction<{
+    title: string;
+    description: string;
+    organizerName: string;
+    timezone: string;
+    pollType: PollType;
+  }>>;
+  setEditDraftOptions: React.Dispatch<React.SetStateAction<DraftOption[]>>;
   submitResponse: () => Promise<void>;
   finalizeResult: () => Promise<void>;
+  startEditPoll: () => void;
+  savePollChanges: () => Promise<void>;
+  setPollStatus: (status: "collecting" | "closed") => Promise<void>;
+  updateEditDraftOption: (id: string, value: Partial<DraftOption>) => void;
+  addEditOption: () => void;
   copyText: (value: string, message?: string) => Promise<void>;
   summaryText: () => string;
   downloadCsv: () => void;
@@ -1025,6 +1238,7 @@ function PollWorkspace({
     ? formatOption(bestOption, poll.poll.timezone, poll.poll.pollType)
     : null;
   const isAdmin = Boolean(adminToken);
+  const canRespond = poll.poll.status === "collecting";
 
   return (
     <section className="workspace poll">
@@ -1038,7 +1252,7 @@ function PollWorkspace({
             {poll.poll.description ? <p className="description">{poll.poll.description}</p> : null}
           </div>
           <span className={`status ${poll.poll.status}`}>
-            {poll.poll.status === "published" ? "Finalized" : "Collecting"}
+            {statusLabel(poll.poll.status)}
           </span>
         </div>
 
@@ -1076,14 +1290,19 @@ function PollWorkspace({
 
         <div className="response-box">
           <div className="section-kicker"><Check size={18} aria-hidden="true" /> Respond</div>
+          {!canRespond ? (
+            <p className="helper-copy">
+              Responses are {poll.poll.status === "published" ? "finalized" : "closed"} for this poll.
+            </p>
+          ) : null}
           <div className="two-up">
             <label>
               Name
-              <input value={replyName} onChange={(event) => setReplyName(event.target.value)} maxLength={120} />
+              <input disabled={!canRespond} value={replyName} onChange={(event) => setReplyName(event.target.value)} maxLength={120} />
             </label>
             <label>
               Email
-              <input value={replyEmail} onChange={(event) => setReplyEmail(event.target.value)} maxLength={180} />
+              <input disabled={!canRespond} value={replyEmail} onChange={(event) => setReplyEmail(event.target.value)} maxLength={180} />
             </label>
           </div>
           <div className="vote-list">
@@ -1099,6 +1318,7 @@ function PollWorkspace({
                     {(["yes", "maybe", "no"] as Availability[]).map((availability) => (
                       <button
                         className={votes[option.id] === availability ? "active" : ""}
+                        disabled={!canRespond}
                         key={availability}
                         type="button"
                         onClick={() => setVotes((current) => ({ ...current, [option.id]: availability }))}
@@ -1115,12 +1335,13 @@ function PollWorkspace({
             Notes
             <textarea
               value={replyNote}
+              disabled={!canRespond}
               onChange={(event) => setReplyNote(event.target.value)}
               rows={3}
               maxLength={1200}
             />
           </label>
-          <button className="primary full" type="button" onClick={submitResponse} disabled={busy}>
+          <button className="primary full" type="button" onClick={submitResponse} disabled={busy || !canRespond}>
             {busy ? <Loader2 className="spin" size={18} aria-hidden="true" /> : <Check size={18} aria-hidden="true" />}
             Save my availability
           </button>
@@ -1143,12 +1364,16 @@ function PollWorkspace({
           </p>
           {isAdmin ? (
             <>
+              <div className="recovery-note">
+                <strong>Organizer safety copy</strong>
+                <span>Save the admin link somewhere you trust. It is the fastest way back to this poll if you switch browsers.</span>
+              </div>
               <button className="secondary full" type="button" onClick={() => copyText(adminLink, "Admin link copied.")}>
                 <Clipboard size={18} aria-hidden="true" />
                 Copy admin link
               </button>
               <p className="helper-copy">
-                Keep this private. It unlocks organizer controls like finalizing the result and exporting responses.
+                Keep it private. It unlocks organizer controls for this poll.
               </p>
             </>
           ) : null}
@@ -1160,6 +1385,142 @@ function PollWorkspace({
             <p className="helper-copy">
               Results update automatically as people respond. Finalizing saves the chosen time and shows it at the top of the attendee link.
             </p>
+            <div className="action-row split">
+              <button className="secondary" type="button" onClick={editingPoll ? () => setEditingPoll(false) : startEditPoll}>
+                <Pencil size={18} aria-hidden="true" />
+                {editingPoll ? "Cancel edit" : "Edit poll"}
+              </button>
+              {poll.poll.status === "collecting" ? (
+                <button className="secondary" type="button" onClick={() => void setPollStatus("closed")} disabled={busy}>
+                  <Lock size={18} aria-hidden="true" />
+                  Close responses
+                </button>
+              ) : poll.poll.status === "closed" ? (
+                <button className="secondary" type="button" onClick={() => void setPollStatus("collecting")} disabled={busy}>
+                  <Unlock size={18} aria-hidden="true" />
+                  Reopen responses
+                </button>
+              ) : null}
+            </div>
+            {editingPoll ? (
+              <div className="edit-box">
+                <div className="two-up">
+                  <label>
+                    Meeting name
+                    <input
+                      value={editDraft.title}
+                      onChange={(event) => setEditDraft((current) => ({ ...current, title: event.target.value }))}
+                      maxLength={120}
+                    />
+                  </label>
+                  <label>
+                    Host
+                    <input
+                      value={editDraft.organizerName}
+                      onChange={(event) => setEditDraft((current) => ({ ...current, organizerName: event.target.value }))}
+                      maxLength={120}
+                    />
+                  </label>
+                </div>
+                <label>
+                  Context
+                  <textarea
+                    value={editDraft.description}
+                    onChange={(event) => setEditDraft((current) => ({ ...current, description: event.target.value }))}
+                    rows={3}
+                    maxLength={1200}
+                  />
+                </label>
+                <label>
+                  Timezone
+                  <input
+                    value={editDraft.timezone}
+                    onChange={(event) => setEditDraft((current) => ({ ...current, timezone: event.target.value }))}
+                    maxLength={80}
+                  />
+                </label>
+                {poll.responses.length === 0 ? (
+                  <>
+                    <div className="mode-toggle" aria-label="Edit poll time type">
+                      <button
+                        className={editDraft.pollType === "specific" ? "active" : ""}
+                        type="button"
+                        onClick={() => {
+                          setEditDraft((current) => ({ ...current, pollType: "specific" }));
+                          setEditDraftOptions(defaultSpecificOptions());
+                        }}
+                      >
+                        <CalendarDays size={16} aria-hidden="true" />
+                        Specific dates
+                      </button>
+                      <button
+                        className={editDraft.pollType === "weekly" ? "active" : ""}
+                        type="button"
+                        onClick={() => {
+                          setEditDraft((current) => ({ ...current, pollType: "weekly" }));
+                          setEditDraftOptions(defaultWeeklyOptions());
+                        }}
+                      >
+                        <Repeat size={16} aria-hidden="true" />
+                        Days of week
+                      </button>
+                    </div>
+                    <div className="option-stack">
+                      {editDraftOptions.map((option) => (
+                        <div className={editDraft.pollType === "weekly" ? "draft-option weekly" : "draft-option"} key={option.id}>
+                          {editDraft.pollType === "weekly" ? (
+                            <>
+                              <select
+                                value={option.dayOfWeek}
+                                onChange={(event) =>
+                                  updateEditDraftOption(option.id, { dayOfWeek: Number(event.target.value) })
+                                }
+                                aria-label="Available weekday"
+                              >
+                                {weekdays.map((day, index) => (
+                                  <option key={day} value={index}>{day}</option>
+                                ))}
+                              </select>
+                              <input
+                                type="time"
+                                value={option.time}
+                                onChange={(event) => updateEditDraftOption(option.id, { time: event.target.value })}
+                                aria-label="Available time"
+                              />
+                            </>
+                          ) : (
+                            <input
+                              type="datetime-local"
+                              value={localInputValue(new Date(option.startsAt))}
+                              onChange={(event) =>
+                                updateEditDraftOption(option.id, { startsAt: optionFromInput(event.target.value) })
+                              }
+                              aria-label="Available date and time"
+                            />
+                          )}
+                          <input
+                            value={option.label}
+                            onChange={(event) => updateEditDraftOption(option.id, { label: event.target.value })}
+                            placeholder="Optional label"
+                            maxLength={120}
+                            aria-label="Available time label"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <button className="secondary" type="button" onClick={addEditOption}>Add available time</button>
+                  </>
+                ) : (
+                  <p className="helper-copy">
+                    Available times are locked after responses arrive, so existing votes stay meaningful.
+                  </p>
+                )}
+                <button className="primary full" type="button" onClick={savePollChanges} disabled={busy}>
+                  {busy ? <Loader2 className="spin" size={18} aria-hidden="true" /> : <Check size={18} aria-hidden="true" />}
+                  Save poll changes
+                </button>
+              </div>
+            ) : null}
             <label>
               Chosen time
               <select

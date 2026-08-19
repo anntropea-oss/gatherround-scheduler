@@ -42,6 +42,12 @@ export async function PATCH(
       status: payload.status,
       selectedOptionId: payload.selectedOptionId,
       publishNote: payload.publishNote,
+      title: payload.title,
+      description: payload.description,
+      organizerName: payload.organizerName,
+      timezone: payload.timezone,
+      pollType: payload.pollType,
+      options: Array.isArray(payload.options) ? payload.options : undefined,
     }, {
       organizerKey: payload.organizerKey,
       superAdmin: session.superAdmin,

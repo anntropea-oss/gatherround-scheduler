@@ -173,3 +173,19 @@
 - Files Changed: SOLUTIONS.md
 - Status: Resolved
 - Verification: The ownership changes were committed and pushed successfully after quoting the path.
+
+## [2026-08-19 16:42] Status Update Treated As Blank Edit
+- Problem: The close-responses smoke test failed with HTTP 400 because a status-only PATCH was interpreted as an edit with a blank poll title.
+- Root Cause: The API route passed undefined edit fields into `updatePoll`, and the update helper treated the presence of those undefined properties as intentional blank values.
+- Solution: Changed edit-field detection to require string values before applying title, description, organizer, or timezone updates.
+- Files Changed: db/polls.ts, SOLUTIONS.md
+- Status: Resolved
+- Verification: The organizer workflow smoke test passed: edit before responses, locked option edit after response, close/reopen responses, response blocking while closed, and finalize.
+
+## [2026-08-19 16:43] Bracketed API Path Diff Failure
+- Problem: A `git diff` inspection command failed with `zsh: no matches found: app/api/polls/[id]/route.ts`.
+- Root Cause: zsh treated `[id]` as a glob pattern because the path was not quoted.
+- Solution: Re-ran the diff with the bracketed path quoted.
+- Files Changed: SOLUTIONS.md
+- Status: Resolved
+- Verification: Quoted-path diff completed successfully.

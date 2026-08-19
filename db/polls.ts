@@ -20,6 +20,18 @@ export type ResponseInput = {
   slots: Array<{ optionId: string; availability: Availability }>;
 };
 
+type PollUpdateInput = {
+  status?: string;
+  selectedOptionId?: string | null;
+  publishNote?: string;
+  title?: string;
+  description?: string;
+  organizerName?: string;
+  timezone?: string;
+  pollType?: PollType;
+  options?: Array<{ startsAt: string; label: string }>;
+};
+
 type PollRow = {
   id: string;
   admin_token: string;
@@ -106,6 +118,10 @@ async function hashOrganizerKey(value: unknown) {
 
 function isAvailability(value: string): value is Availability {
   return value === "yes" || value === "maybe" || value === "no";
+}
+
+function cleanStatus(value: unknown) {
+  return value === "closed" || value === "published" ? value : "collecting";
 }
 
 async function canAdminister(poll: Pick<PollRow, "admin_token" | "organizer_key_hash">, access: AccessContext) {
@@ -368,12 +384,15 @@ export async function addResponse(pollId: string, input: ResponseInput) {
   await ensureSchema(database);
 
   const poll = await database
-    .prepare("SELECT id FROM polls WHERE id = ?")
+    .prepare("SELECT id, status FROM polls WHERE id = ?")
     .bind(pollId)
-    .first<{ id: string }>();
+    .first<{ id: string; status: string }>();
 
   if (!poll) {
     throw new Response("Poll not found.", { status: 404 });
+  }
+  if (poll.status !== "collecting") {
+    throw new Response("This poll is not accepting new responses.", { status: 409 });
   }
 
   const optionRows = await database
@@ -418,16 +437,16 @@ export async function addResponse(pollId: string, input: ResponseInput) {
 export async function updatePoll(
   pollId: string,
   adminToken: string,
-  input: { status?: string; selectedOptionId?: string | null; publishNote?: string },
+  input: PollUpdateInput,
   access: Omit<AccessContext, "adminToken"> = {},
 ) {
   const database = db();
   await ensureSchema(database);
 
   const poll = await database
-    .prepare("SELECT id, admin_token, organizer_key_hash FROM polls WHERE id = ?")
+    .prepare("SELECT id, admin_token, organizer_key_hash, status FROM polls WHERE id = ?")
     .bind(pollId)
-    .first<Pick<PollRow, "id" | "admin_token" | "organizer_key_hash">>();
+    .first<Pick<PollRow, "id" | "admin_token" | "organizer_key_hash" | "status">>();
 
   if (!poll) {
     throw new Response("Poll not found.", { status: 404 });
@@ -436,8 +455,48 @@ export async function updatePoll(
     throw new Response("Admin link required.", { status: 403 });
   }
 
-  const status = input.status === "published" ? "published" : "collecting";
+  let replacementOptions: Array<{ startsAt: string; label: string }> | null = null;
+
+  if (Array.isArray(input.options)) {
+    const responseCount = await database
+      .prepare("SELECT COUNT(*) AS count FROM responses WHERE poll_id = ?")
+      .bind(pollId)
+      .first<{ count: number }>();
+
+    if ((responseCount?.count ?? 0) > 0) {
+      throw new Response("Available times are locked after responses arrive.", { status: 409 });
+    }
+
+    replacementOptions = input.options
+      .map((option) => ({
+        startsAt: clean(option.startsAt, 80),
+        label: clean(option.label, 120),
+      }))
+      .filter((option) => option.startsAt && !Number.isNaN(Date.parse(option.startsAt)))
+      .slice(0, 24);
+
+    if (replacementOptions.length < 2) {
+      throw new Response("Add at least two time options.", { status: 400 });
+    }
+  }
+
+  const status = typeof input.status === "string" ? cleanStatus(input.status) : poll.status;
   const publishNote = clean(input.publishNote, 1000);
+  const title = clean(input.title, 120);
+  const description = clean(input.description, 1200);
+  const organizerName = clean(input.organizerName, 120);
+  const timezone = clean(input.timezone, 80);
+  const pollType: PollType | "" = input.pollType === "weekly" || input.pollType === "specific" ? input.pollType : "";
+  const hasTitle = typeof input.title === "string";
+  const hasDescription = typeof input.description === "string";
+  const hasOrganizerName = typeof input.organizerName === "string";
+  const hasTimezone = typeof input.timezone === "string";
+  const hasSelectedOptionId = Object.prototype.hasOwnProperty.call(input, "selectedOptionId");
+  const hasPublishNote = Object.prototype.hasOwnProperty.call(input, "publishNote");
+
+  if (hasTitle && !title) {
+    throw new Response("A poll title is required.", { status: 400 });
+  }
   let selectedOptionId = input.selectedOptionId ? clean(input.selectedOptionId, 80) : null;
 
   if (selectedOptionId) {
@@ -450,10 +509,51 @@ export async function updatePoll(
 
   await database
     .prepare(
-      "UPDATE polls SET status = ?, selected_option_id = ?, publish_note = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+      `UPDATE polls
+       SET status = ?,
+           selected_option_id = CASE WHEN ? THEN ? ELSE selected_option_id END,
+           publish_note = CASE WHEN ? THEN ? ELSE publish_note END,
+           title = CASE WHEN ? THEN ? ELSE title END,
+           description = CASE WHEN ? THEN ? ELSE description END,
+           organizer_name = CASE WHEN ? THEN ? ELSE organizer_name END,
+           timezone = CASE WHEN ? THEN ? ELSE timezone END,
+           poll_type = CASE WHEN ? THEN ? ELSE poll_type END,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
     )
-    .bind(status, selectedOptionId, publishNote, pollId)
+    .bind(
+      status,
+      hasSelectedOptionId ? 1 : 0,
+      selectedOptionId,
+      hasPublishNote ? 1 : 0,
+      publishNote,
+      hasTitle ? 1 : 0,
+      title,
+      hasDescription ? 1 : 0,
+      description,
+      hasOrganizerName ? 1 : 0,
+      organizerName,
+      hasTimezone ? 1 : 0,
+      timezone,
+      pollType ? 1 : 0,
+      pollType,
+      pollId,
+    )
     .run();
+
+  if (replacementOptions) {
+    await database.batch([
+      database.prepare("DELETE FROM poll_options WHERE poll_id = ?").bind(pollId),
+      database.prepare("UPDATE polls SET selected_option_id = NULL WHERE id = ?").bind(pollId),
+      ...replacementOptions.map((option, index) =>
+        database
+          .prepare(
+            "INSERT INTO poll_options (id, poll_id, starts_at, label, sort_order) VALUES (?, ?, ?, ?, ?)",
+          )
+          .bind(crypto.randomUUID(), pollId, option.startsAt, option.label, index),
+      ),
+    ]);
+  }
 
   return getPoll(pollId, { ...access, adminToken });
 }

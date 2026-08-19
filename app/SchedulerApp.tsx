@@ -1236,7 +1236,7 @@ function PollWorkspace({
   return (
     <section className="workspace poll">
       <div className="poll-main">
-        <div className="poll-title-row">
+        <div className="poll-hero">
           <div>
             <p className="section-kicker">
               {poll.poll.organizerName || "Host"} is gathering availability
@@ -1259,30 +1259,44 @@ function PollWorkspace({
           </div>
         ) : null}
 
-        <div className="result-grid">
-          {ranked.map(({ option, counts, score }, index) => {
-            const formatted = formatOption(option, poll.poll.timezone, poll.poll.pollType);
-            const maxScore = Math.max(1, (poll.responses.length || 1) * 2);
-            return (
-              <button
-                className={`time-result ${option.id === selectedOptionId ? "selected" : ""}`}
-                key={option.id}
-                type="button"
-                onClick={isAdmin ? () => setSelectedOptionId(option.id) : undefined}
-              >
-                <span className="rank">#{index + 1}</span>
-                <strong>{formatted.day}</strong>
-                <span>{formatted.time}</span>
-                {formatted.label ? <em>{formatted.label}</em> : null}
-                <i style={{ "--fill": `${Math.round((score / maxScore) * 100)}%` } as React.CSSProperties} />
-                <small>{counts.yes} yes / {counts.maybe} maybe</small>
-              </button>
-            );
-          })}
-        </div>
+        <section className="results-section" aria-label="Best available times">
+          <div className="section-head">
+            <div>
+              <p className="section-kicker"><Trophy size={18} aria-hidden="true" /> Best times</p>
+              <p className="helper-copy">Ranked by yes and maybe responses.</p>
+            </div>
+            <span className="response-count">{poll.responses.length} responses</span>
+          </div>
+          <div className="result-grid">
+            {ranked.map(({ option, counts, score }, index) => {
+              const formatted = formatOption(option, poll.poll.timezone, poll.poll.pollType);
+              const maxScore = Math.max(1, (poll.responses.length || 1) * 2);
+              return (
+                <button
+                  className={`time-result ${option.id === selectedOptionId ? "selected" : ""}`}
+                  key={option.id}
+                  type="button"
+                  onClick={isAdmin ? () => setSelectedOptionId(option.id) : undefined}
+                >
+                  <span className="rank">#{index + 1}</span>
+                  <strong>{formatted.day}</strong>
+                  <span className="time-copy">{formatted.time}</span>
+                  {formatted.label ? <em>{formatted.label}</em> : null}
+                  <i style={{ "--fill": `${Math.round((score / maxScore) * 100)}%` } as React.CSSProperties} />
+                  <small>{counts.yes} yes / {counts.maybe} maybe</small>
+                </button>
+              );
+            })}
+          </div>
+        </section>
 
-        <div className="response-box">
-          <div className="section-kicker"><Check size={18} aria-hidden="true" /> Respond</div>
+        <div className="response-box focus-panel">
+          <div className="section-head">
+            <div>
+              <p className="section-kicker"><Check size={18} aria-hidden="true" /> Your availability</p>
+              <p className="helper-copy">Pick what works, then save once.</p>
+            </div>
+          </div>
           {!canRespond ? (
             <p className="helper-copy">
               Responses are {poll.poll.status === "published" ? "finalized" : "closed"} for this poll.
@@ -1302,8 +1316,8 @@ function PollWorkspace({
             {poll.options.map((option) => {
               const formatted = formatOption(option, poll.poll.timezone, poll.poll.pollType);
               return (
-                <div className="vote-row" key={option.id}>
-                  <div>
+                <div className="vote-row availability-row" key={option.id}>
+                  <div className="time-chip">
                     <strong>{formatted.day}</strong>
                     <span>{formatted.time}{formatted.label ? ` - ${formatted.label}` : ""}</span>
                   </div>
@@ -1342,8 +1356,8 @@ function PollWorkspace({
       </div>
 
       <aside className="side-panel">
-        <div className="share-panel">
-          <p className="section-kicker"><LinkIcon size={18} aria-hidden="true" /> Links</p>
+        <div className="share-panel access-panel">
+          <p className="section-kicker"><LinkIcon size={18} aria-hidden="true" /> Share</p>
           <button className="secondary full" type="button" onClick={returnToOrganizerHome}>
             <ArrowLeft size={18} aria-hidden="true" />
             Back to my polls
@@ -1357,7 +1371,7 @@ function PollWorkspace({
           </p>
           {isAdmin ? (
             <>
-              <div className="recovery-note">
+              <div className="organizer-note">
                 <strong>Organizer safety copy</strong>
                 <span>Save the admin link somewhere you trust. It is the fastest way back to this poll if you switch browsers.</span>
               </div>
@@ -1373,12 +1387,14 @@ function PollWorkspace({
         </div>
 
         {isAdmin ? (
-          <div className="publish-panel">
-            <p className="section-kicker"><Trophy size={18} aria-hidden="true" /> Organizer controls</p>
-            <p className="helper-copy">
-              Results update automatically as people respond. Finalizing saves the chosen time and shows it at the top of the attendee link.
-            </p>
-            <div className="action-row split">
+          <div className="publish-panel organizer-actions">
+            <div className="section-head">
+              <div>
+                <p className="section-kicker"><Trophy size={18} aria-hidden="true" /> Organizer</p>
+                <p className="helper-copy">Finalize a time when the responses tell the story.</p>
+              </div>
+            </div>
+            <div className="toolbar-row">
               <button className="secondary" type="button" onClick={editingPoll ? () => setEditingPoll(false) : startEditPoll}>
                 <Pencil size={18} aria-hidden="true" />
                 {editingPoll ? "Cancel edit" : "Edit poll"}
@@ -1386,12 +1402,12 @@ function PollWorkspace({
               {poll.poll.status === "collecting" ? (
                 <button className="secondary" type="button" onClick={() => void setPollStatus("closed")} disabled={busy}>
                   <Lock size={18} aria-hidden="true" />
-                  Close responses
+                  Close
                 </button>
               ) : poll.poll.status === "closed" ? (
                 <button className="secondary" type="button" onClick={() => void setPollStatus("collecting")} disabled={busy}>
                   <Unlock size={18} aria-hidden="true" />
-                  Reopen responses
+                  Reopen
                 </button>
               ) : null}
             </div>
@@ -1514,44 +1530,48 @@ function PollWorkspace({
                 </button>
               </div>
             ) : null}
-            <label>
-              Chosen time
-              <select
-                value={selectedOptionId ?? ""}
-                onChange={(event) => setSelectedOptionId(event.target.value)}
-              >
-                {poll.options.map((option) => {
-                  const formatted = formatOption(option, poll.poll.timezone, poll.poll.pollType);
-                  return (
-                    <option key={option.id} value={option.id}>
-                      {formatted.day} {formatted.time}
-                    </option>
-                  );
-                })}
-              </select>
-            </label>
-            <label>
-              Result note
-              <textarea
-                value={publishNote}
-                onChange={(event) => setPublishNote(event.target.value)}
-                rows={3}
-                maxLength={1000}
-                placeholder="Optional note people will see with the final time"
-              />
-            </label>
-            <button className="primary full" type="button" onClick={finalizeResult} disabled={busy}>
-              {busy ? <Loader2 className="spin" size={18} aria-hidden="true" /> : <Trophy size={18} aria-hidden="true" />}
-              Finalize chosen time
-            </button>
-            <button className="secondary full" type="button" onClick={() => copyText(summaryText(), "Summary copied.")}>
-              <Clipboard size={18} aria-hidden="true" />
-              Copy summary
-            </button>
-            <button className="secondary full" type="button" onClick={downloadCsv}>
-              <Download size={18} aria-hidden="true" />
-              Download responses CSV
-            </button>
+            <div className="finalize-area">
+              <label>
+                Chosen time
+                <select
+                  value={selectedOptionId ?? ""}
+                  onChange={(event) => setSelectedOptionId(event.target.value)}
+                >
+                  {poll.options.map((option) => {
+                    const formatted = formatOption(option, poll.poll.timezone, poll.poll.pollType);
+                    return (
+                      <option key={option.id} value={option.id}>
+                        {formatted.day} {formatted.time}
+                      </option>
+                    );
+                  })}
+                </select>
+              </label>
+              <label>
+                Result note
+                <textarea
+                  value={publishNote}
+                  onChange={(event) => setPublishNote(event.target.value)}
+                  rows={3}
+                  maxLength={1000}
+                  placeholder="Optional note people will see with the final time"
+                />
+              </label>
+              <button className="primary full" type="button" onClick={finalizeResult} disabled={busy}>
+                {busy ? <Loader2 className="spin" size={18} aria-hidden="true" /> : <Trophy size={18} aria-hidden="true" />}
+                Finalize chosen time
+              </button>
+            </div>
+            <div className="quiet-actions">
+              <button className="secondary" type="button" onClick={() => copyText(summaryText(), "Summary copied.")}>
+                <Clipboard size={18} aria-hidden="true" />
+                Copy summary
+              </button>
+              <button className="secondary" type="button" onClick={downloadCsv}>
+                <Download size={18} aria-hidden="true" />
+                CSV
+              </button>
+            </div>
           </div>
         ) : (
           <div className="publish-panel">

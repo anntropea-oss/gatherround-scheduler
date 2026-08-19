@@ -189,3 +189,11 @@
 - Files Changed: SOLUTIONS.md
 - Status: Resolved
 - Verification: Quoted-path diff completed successfully.
+
+## [2026-08-19 16:59] Git Committer Identity Warning
+- Problem: `git commit` completed but warned that the committer name and email were auto-configured from the local machine account.
+- Root Cause: Repository or global Git author identity has not been explicitly configured in this workspace.
+- Solution: Documented the warning for follow-up; no app code change was required.
+- Files Changed: SOLUTIONS.md
+- Status: Open
+- Verification: The poll screen polish commit completed successfully despite the warning.

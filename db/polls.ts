@@ -7,6 +7,7 @@ export type PollInput = {
   title: string;
   description: string;
   organizerName: string;
+  organizerKey?: string;
   timezone: string;
   pollType?: PollType;
   options: Array<{ startsAt: string; label: string }>;
@@ -25,6 +26,7 @@ type PollRow = {
   title: string;
   description: string;
   organizer_name: string;
+  organizer_key_hash?: string;
   timezone: string;
   poll_type?: string;
   status: string;
@@ -58,6 +60,16 @@ type SlotRow = {
   availability: Availability;
 };
 
+type PollSummaryRow = PollRow & {
+  response_count: number;
+};
+
+export type AccessContext = {
+  adminToken?: string | null;
+  organizerKey?: string | null;
+  superAdmin?: boolean;
+};
+
 let schemaReady: Promise<void> | null = null;
 
 function db() {
@@ -79,8 +91,33 @@ function clean(value: unknown, max = 2000) {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
 }
 
+function toHex(bytes: ArrayBuffer) {
+  return Array.from(new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function hashOrganizerKey(value: unknown) {
+  const key = clean(value, 120);
+  if (!key) {
+    return "";
+  }
+
+  return toHex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(key)));
+}
+
 function isAvailability(value: string): value is Availability {
   return value === "yes" || value === "maybe" || value === "no";
+}
+
+async function canAdminister(poll: Pick<PollRow, "admin_token" | "organizer_key_hash">, access: AccessContext) {
+  if (access.superAdmin) {
+    return true;
+  }
+  if (access.adminToken && access.adminToken === poll.admin_token) {
+    return true;
+  }
+
+  const organizerKeyHash = await hashOrganizerKey(access.organizerKey);
+  return Boolean(organizerKeyHash && poll.organizer_key_hash && organizerKeyHash === poll.organizer_key_hash);
 }
 
 async function ensureSchema(database = db()) {
@@ -93,6 +130,7 @@ async function ensureSchema(database = db()) {
           title TEXT NOT NULL,
           description TEXT NOT NULL DEFAULT '',
           organizer_name TEXT NOT NULL DEFAULT '',
+          organizer_key_hash TEXT NOT NULL DEFAULT '',
           timezone TEXT NOT NULL DEFAULT 'UTC',
           poll_type TEXT NOT NULL DEFAULT 'specific',
           status TEXT NOT NULL DEFAULT 'collecting',
@@ -138,11 +176,20 @@ async function ensureSchema(database = db()) {
     .then(async () => {
       const columns = await database.prepare("PRAGMA table_info(polls)").all<{ name: string }>();
       const hasPollType = (columns.results ?? []).some((column) => column.name === "poll_type");
+      const hasOrganizerKeyHash = (columns.results ?? []).some((column) => column.name === "organizer_key_hash");
       if (!hasPollType) {
         await database
           .prepare("ALTER TABLE polls ADD COLUMN poll_type TEXT NOT NULL DEFAULT 'specific'")
           .run();
       }
+      if (!hasOrganizerKeyHash) {
+        await database
+          .prepare("ALTER TABLE polls ADD COLUMN organizer_key_hash TEXT NOT NULL DEFAULT ''")
+          .run();
+      }
+      await database
+        .prepare("CREATE INDEX IF NOT EXISTS idx_polls_organizer_key_hash ON polls(organizer_key_hash)")
+        .run();
     });
 
   return schemaReady;
@@ -155,6 +202,7 @@ export async function createPoll(input: PollInput) {
   const title = clean(input.title, 120);
   const description = clean(input.description, 1200);
   const organizerName = clean(input.organizerName, 120);
+  const organizerKeyHash = await hashOrganizerKey(input.organizerKey);
   const timezone = clean(input.timezone, 80) || "UTC";
   const pollType: PollType = input.pollType === "weekly" ? "weekly" : "specific";
   const rawOptions = input.options
@@ -177,9 +225,9 @@ export async function createPoll(input: PollInput) {
   const statements = [
     database
       .prepare(
-        "INSERT INTO polls (id, admin_token, title, description, organizer_name, timezone, poll_type) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO polls (id, admin_token, title, description, organizer_name, organizer_key_hash, timezone, poll_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
       )
-      .bind(pollId, adminToken, title, description, organizerName, timezone, pollType),
+      .bind(pollId, adminToken, title, description, organizerName, organizerKeyHash, timezone, pollType),
     ...rawOptions.map((option, index) =>
       database
         .prepare(
@@ -193,9 +241,54 @@ export async function createPoll(input: PollInput) {
   return getPoll(pollId, adminToken);
 }
 
-export async function getPoll(id: string, adminToken?: string | null) {
+export async function listPolls(access: AccessContext) {
   const database = db();
   await ensureSchema(database);
+
+  const organizerKeyHash = await hashOrganizerKey(access.organizerKey);
+  if (!access.superAdmin && !organizerKeyHash) {
+    return { polls: [], superAdmin: false };
+  }
+
+  const query = `
+    SELECT polls.*, COUNT(responses.id) AS response_count
+    FROM polls
+    LEFT JOIN responses ON responses.poll_id = polls.id
+    ${access.superAdmin ? "" : "WHERE polls.organizer_key_hash = ?"}
+    GROUP BY polls.id
+    ORDER BY polls.updated_at DESC, polls.created_at DESC
+    LIMIT 100
+  `;
+  const rows = access.superAdmin
+    ? await database.prepare(query).all<PollSummaryRow>()
+    : await database.prepare(query).bind(organizerKeyHash).all<PollSummaryRow>();
+
+  return {
+    superAdmin: Boolean(access.superAdmin),
+    polls: (rows.results ?? []).map((poll) => ({
+      id: poll.id,
+      title: poll.title,
+      description: poll.description,
+      organizerName: poll.organizer_name,
+      timezone: poll.timezone,
+      pollType: poll.poll_type === "weekly" ? "weekly" : "specific",
+      status: poll.status,
+      selectedOptionId: poll.selected_option_id,
+      createdAt: poll.created_at,
+      updatedAt: poll.updated_at,
+      responseCount: poll.response_count,
+      adminToken: poll.admin_token,
+    })),
+  };
+}
+
+export async function getPoll(id: string, adminTokenOrAccess?: string | null | AccessContext) {
+  const database = db();
+  await ensureSchema(database);
+  const access: AccessContext =
+    typeof adminTokenOrAccess === "object" && adminTokenOrAccess !== null
+      ? adminTokenOrAccess
+      : { adminToken: adminTokenOrAccess };
 
   const poll = await database
     .prepare("SELECT * FROM polls WHERE id = ?")
@@ -206,7 +299,7 @@ export async function getPoll(id: string, adminToken?: string | null) {
     return null;
   }
 
-  const isAdmin = Boolean(adminToken && adminToken === poll.admin_token);
+  const isAdmin = await canAdminister(poll, access);
   const options = await database
     .prepare("SELECT * FROM poll_options WHERE poll_id = ? ORDER BY sort_order, starts_at")
     .bind(id)
@@ -326,19 +419,20 @@ export async function updatePoll(
   pollId: string,
   adminToken: string,
   input: { status?: string; selectedOptionId?: string | null; publishNote?: string },
+  access: Omit<AccessContext, "adminToken"> = {},
 ) {
   const database = db();
   await ensureSchema(database);
 
   const poll = await database
-    .prepare("SELECT id, admin_token FROM polls WHERE id = ?")
+    .prepare("SELECT id, admin_token, organizer_key_hash FROM polls WHERE id = ?")
     .bind(pollId)
-    .first<{ id: string; admin_token: string }>();
+    .first<Pick<PollRow, "id" | "admin_token" | "organizer_key_hash">>();
 
   if (!poll) {
     throw new Response("Poll not found.", { status: 404 });
   }
-  if (poll.admin_token !== adminToken) {
+  if (!(await canAdminister(poll, { ...access, adminToken }))) {
     throw new Response("Admin link required.", { status: 403 });
   }
 
@@ -361,5 +455,5 @@ export async function updatePoll(
     .bind(status, selectedOptionId, publishNote, pollId)
     .run();
 
-  return getPoll(pollId, adminToken);
+  return getPoll(pollId, { ...access, adminToken });
 }

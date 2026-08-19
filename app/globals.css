@@ -187,7 +187,7 @@ h2 {
 .choice-panel {
   display: grid;
   gap: 14px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .choice-card {
@@ -270,6 +270,14 @@ h2 {
   color: var(--mint-dark);
 }
 
+.status.super {
+  align-items: center;
+  background: #eef3ff;
+  color: var(--blue);
+  display: inline-flex;
+  gap: 6px;
+}
+
 label {
   color: var(--ink-soft);
   display: grid;
@@ -321,9 +329,36 @@ button:focus-visible {
 }
 
 .option-stack,
-.vote-list {
+.vote-list,
+.poll-list {
   display: grid;
   gap: 12px;
+}
+
+.organizer-panel {
+  max-width: 860px;
+}
+
+.poll-card {
+  background: #fffefa;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--foreground);
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  text-align: left;
+}
+
+.poll-card:hover,
+.poll-card:focus-visible {
+  border-color: var(--blue);
+}
+
+.poll-card span,
+.poll-card small {
+  color: var(--ink-soft);
+  line-height: 1.4;
 }
 
 .draft-option {

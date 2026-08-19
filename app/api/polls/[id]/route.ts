@@ -1,4 +1,5 @@
 import { getPoll, updatePoll } from "@/db/polls";
+import { getSessionInfo } from "@/app/api/server-auth";
 
 function errorResponse(error: unknown) {
   if (error instanceof Response) {
@@ -36,10 +37,14 @@ export async function PATCH(
   try {
     const { id } = await context.params;
     const payload = await request.json();
+    const session = await getSessionInfo();
     const result = await updatePoll(id, payload.adminToken, {
       status: payload.status,
       selectedOptionId: payload.selectedOptionId,
       publishNote: payload.publishNote,
+    }, {
+      organizerKey: payload.organizerKey,
+      superAdmin: session.superAdmin,
     });
     return Response.json(result);
   } catch (error) {

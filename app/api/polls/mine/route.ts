@@ -1,4 +1,5 @@
-import { createPoll } from "@/db/polls";
+import { listPolls } from "@/db/polls";
+import { getSessionInfo } from "@/app/api/server-auth";
 
 function errorResponse(error: unknown) {
   if (error instanceof Response) {
@@ -13,16 +14,13 @@ function errorResponse(error: unknown) {
 export async function POST(request: Request) {
   try {
     const payload = await request.json();
-    const result = await createPoll({
-      title: payload.title,
-      description: payload.description,
-      organizerName: payload.organizerName,
+    const session = await getSessionInfo();
+    const result = await listPolls({
       organizerKey: payload.organizerKey,
-      timezone: payload.timezone,
-      pollType: payload.pollType,
-      options: Array.isArray(payload.options) ? payload.options : [],
+      superAdmin: session.superAdmin,
     });
-    return Response.json(result, { status: 201 });
+
+    return Response.json({ ...result, session });
   } catch (error) {
     return errorResponse(error);
   }

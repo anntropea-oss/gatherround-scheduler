@@ -149,3 +149,19 @@
 - Files Changed: SOLUTIONS.md
 - Status: Resolved
 - Verification: Authenticated `git ls-remote` confirmed both `origin/main` and `sites/main` at `14f914ad13f4cf0ce6e9845d057ee4a8c8961668`.
+
+## [2026-08-19 16:24] Sites Reference Path Mismatch
+- Problem: The first attempt to read Sites persistence, SQLite, and authentication reference docs failed with `No such file or directory`.
+- Root Cause: The references are nested under `skills/sites-building/references/`, not directly under `skills/references/`.
+- Solution: Located the bundled reference files and read the correct persistence, SQLite, and authentication docs before implementing ownership changes.
+- Files Changed: SOLUTIONS.md
+- Status: Resolved
+- Verification: Correct reference files were read successfully from `skills/sites-building/references/`.
+
+## [2026-08-19 16:24] Organizer Polls Effect Lint Failure
+- Problem: `npm run lint` failed because the new organizer poll loading effect called a state-updating async function directly from the effect body.
+- Root Cause: React hook lint rules disallow synchronous effect-triggered state updates that can cascade renders.
+- Solution: Deferred the organizer poll load through `window.setTimeout`, matching the existing deferred URL poll loading pattern.
+- Files Changed: app/SchedulerApp.tsx, SOLUTIONS.md
+- Status: Resolved
+- Verification: `npm run lint` and `npm test` completed successfully.

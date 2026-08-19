@@ -18,6 +18,11 @@ The actual app is the full-stack build. It stores polls and responses through th
 D1-backed API, supports specific dates or recurring days of week, and keeps admin
 controls behind the private organizer link.
 
+Organizer access is intentionally lightweight while the app is still early:
+each browser gets an organizer key for listing polls it created, and each poll
+also has a private admin link. Super-admin access is server-side and controlled
+with the `SUPER_ADMIN_EMAILS` runtime environment variable.
+
 ## Local Static Preview
 
 ```bash

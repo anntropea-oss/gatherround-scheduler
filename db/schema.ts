@@ -7,6 +7,7 @@ export const polls = sqliteTable("polls", {
   title: text("title").notNull(),
   description: text("description").notNull().default(""),
   organizerName: text("organizer_name").notNull().default(""),
+  organizerKeyHash: text("organizer_key_hash").notNull().default(""),
   timezone: text("timezone").notNull().default("UTC"),
   pollType: text("poll_type").notNull().default("specific"),
   status: text("status").notNull().default("collecting"),
@@ -14,7 +15,9 @@ export const polls = sqliteTable("polls", {
   publishNote: text("publish_note").notNull().default(""),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-});
+}, (table) => [
+  index("idx_polls_organizer_key_hash").on(table.organizerKeyHash),
+]);
 
 export const pollOptions = sqliteTable(
   "poll_options",

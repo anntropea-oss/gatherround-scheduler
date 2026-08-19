@@ -1,15 +1,18 @@
 "use client";
 
 import {
+  ArrowLeft,
   CalendarDays,
   CalendarPlus,
   Check,
   Clipboard,
   Download,
   Link as LinkIcon,
+  ListChecks,
   Loader2,
   Repeat,
   Search,
+  ShieldCheck,
   Sparkles,
   Trophy,
 } from "lucide-react";
@@ -17,7 +20,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 type Availability = "yes" | "maybe" | "no";
 type PollType = "specific" | "weekly";
-type HomeMode = "start" | "create" | "respond";
+type HomeMode = "start" | "create" | "organizer" | "respond";
 
 type PollOption = {
   id: string;
@@ -50,6 +53,28 @@ type PollPayload = {
   };
   options: PollOption[];
   responses: PollResponse[];
+};
+
+type PollSummary = {
+  id: string;
+  title: string;
+  description: string;
+  organizerName: string;
+  timezone: string;
+  pollType: PollType;
+  status: string;
+  selectedOptionId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  responseCount: number;
+  adminToken: string;
+};
+
+type SessionInfo = {
+  signedIn: boolean;
+  email: string;
+  displayName: string;
+  superAdmin: boolean;
 };
 
 type DraftOption = {
@@ -86,6 +111,23 @@ const weekdays = [
   "Friday",
   "Saturday",
 ];
+
+const organizerKeyStorage = "gatherround.organizerKey";
+
+function readOrganizerKey() {
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  const existing = window.localStorage.getItem(organizerKeyStorage);
+  if (existing) {
+    return existing;
+  }
+
+  const key = crypto.randomUUID();
+  window.localStorage.setItem(organizerKeyStorage, key);
+  return key;
+}
 
 function localInputValue(date: Date) {
   const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
@@ -220,6 +262,7 @@ function rankOptions(options: PollOption[], responses: PollResponse[]) {
 export default function SchedulerApp() {
   const initialUrlState = readUrlState();
   const [mode, setMode] = useState<HomeMode>(initialUrlState.pollId ? "respond" : "start");
+  const [organizerKey] = useState(readOrganizerKey);
   const [draft, setDraft] = useState({
     title: "Strategy sync",
     description: "Pick the times that feel good, mark maybes honestly, and leave any useful constraints.",
@@ -240,6 +283,9 @@ export default function SchedulerApp() {
   const [votes, setVotes] = useState<Record<string, Availability>>({});
   const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
   const [publishNote, setPublishNote] = useState("");
+  const [myPolls, setMyPolls] = useState<PollSummary[]>([]);
+  const [session, setSession] = useState<SessionInfo | null>(null);
+  const [loadingMyPolls, setLoadingMyPolls] = useState(false);
 
   const ranked = useMemo(
     () => (poll ? rankOptions(poll.options, poll.responses) : []),
@@ -261,6 +307,33 @@ export default function SchedulerApp() {
     setSelectedOptionId(nextPoll.poll.selectedOptionId ?? nextRanked[0]?.option.id ?? null);
     setPublishNote(nextPoll.poll.publishNote);
   }, []);
+
+  const loadMyPolls = useCallback(async () => {
+    if (!organizerKey) {
+      return;
+    }
+
+    setLoadingMyPolls(true);
+    try {
+      const response = await fetch("/api/polls/mine", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ organizerKey }),
+      });
+      const payload = await parseResponse(response);
+
+      if (!response.ok) {
+        setToast({ tone: "bad", message: getErrorMessage(payload) });
+        return;
+      }
+
+      const result = payload as { polls: PollSummary[]; session: SessionInfo };
+      setMyPolls(result.polls);
+      setSession(result.session);
+    } finally {
+      setLoadingMyPolls(false);
+    }
+  }, [organizerKey]);
 
   const loadPoll = useCallback(async (pollId: string, admin = "") => {
     setLoadingPoll(true);
@@ -291,6 +364,13 @@ export default function SchedulerApp() {
     }
   }, [loadPoll]);
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadMyPolls();
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadMyPolls]);
+
   function switchPollType(pollType: PollType) {
     setDraft((current) => ({ ...current, pollType }));
     setDraftOptions(pollType === "weekly" ? defaultWeeklyOptions() : defaultSpecificOptions());
@@ -317,7 +397,7 @@ export default function SchedulerApp() {
       const response = await fetch("/api/polls", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ...draft, options }),
+        body: JSON.stringify({ ...draft, organizerKey, options }),
       });
       const payload = await parseResponse(response);
 
@@ -331,10 +411,25 @@ export default function SchedulerApp() {
       applyPoll(created);
       setAdminToken(token);
       window.history.replaceState(null, "", `/?poll=${created.poll.id}&admin=${token}`);
+      void loadMyPolls();
       setToast({ tone: "good", message: "Poll created. Share the attendee link when you are ready." });
     } finally {
       setBusy(false);
     }
+  }
+
+  async function openOrganizerPoll(summary: PollSummary) {
+    setAdminToken(summary.adminToken);
+    window.history.replaceState(null, "", `/?poll=${summary.id}&admin=${summary.adminToken}`);
+    await loadPoll(summary.id, summary.adminToken);
+  }
+
+  function returnToOrganizerHome() {
+    setPoll(null);
+    setAdminToken("");
+    window.history.replaceState(null, "", "/");
+    setMode("organizer");
+    void loadMyPolls();
   }
 
   async function openPollFromLookup() {
@@ -399,6 +494,7 @@ export default function SchedulerApp() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           adminToken,
+          organizerKey,
           status: "published",
           selectedOptionId,
           publishNote,
@@ -553,6 +649,7 @@ export default function SchedulerApp() {
           attendeeLink={attendeeLink}
           adminLink={adminLink}
           adminToken={adminToken}
+          returnToOrganizerHome={returnToOrganizerHome}
           replyName={replyName}
           replyEmail={replyEmail}
           replyNote={replyNote}
@@ -579,12 +676,17 @@ export default function SchedulerApp() {
           draft={draft}
           setDraft={setDraft}
           draftOptions={draftOptions}
+          myPolls={myPolls}
+          session={session}
+          loadingMyPolls={loadingMyPolls}
           pollLookup={pollLookup}
           setPollLookup={setPollLookup}
           switchPollType={switchPollType}
           updateDraftOption={updateDraftOption}
           addOption={addOption}
           createNewPoll={createNewPoll}
+          loadMyPolls={loadMyPolls}
+          openOrganizerPoll={openOrganizerPoll}
           openPollFromLookup={openPollFromLookup}
           busy={busy}
         />
@@ -599,12 +701,17 @@ function HomeWorkspace({
   draft,
   setDraft,
   draftOptions,
+  myPolls,
+  session,
+  loadingMyPolls,
   pollLookup,
   setPollLookup,
   switchPollType,
   updateDraftOption,
   addOption,
   createNewPoll,
+  loadMyPolls,
+  openOrganizerPoll,
   openPollFromLookup,
   busy,
 }: {
@@ -625,12 +732,17 @@ function HomeWorkspace({
     pollType: PollType;
   }>>;
   draftOptions: DraftOption[];
+  myPolls: PollSummary[];
+  session: SessionInfo | null;
+  loadingMyPolls: boolean;
   pollLookup: string;
   setPollLookup: (value: string) => void;
   switchPollType: (pollType: PollType) => void;
   updateDraftOption: (id: string, value: Partial<DraftOption>) => void;
   addOption: () => void;
   createNewPoll: () => Promise<void>;
+  loadMyPolls: () => Promise<void>;
+  openOrganizerPoll: (summary: PollSummary) => Promise<void>;
   openPollFromLookup: () => Promise<void>;
   busy: boolean;
 }) {
@@ -647,6 +759,18 @@ function HomeWorkspace({
           <span>Pick available times, share an attendee link, and use the admin link to finalize the winner.</span>
         </button>
         <button
+          className={`choice-card ${mode === "organizer" ? "active" : ""}`}
+          type="button"
+          onClick={() => {
+            setMode("organizer");
+            void loadMyPolls();
+          }}
+        >
+          <ListChecks size={22} aria-hidden="true" />
+          <strong>My organizer polls</strong>
+          <span>Open and manage every poll created from this browser.</span>
+        </button>
+        <button
           className={`choice-card ${mode === "respond" ? "active" : ""}`}
           type="button"
           onClick={() => setMode("respond")}
@@ -657,7 +781,45 @@ function HomeWorkspace({
         </button>
       </div>
 
-      {mode === "respond" ? (
+      {mode === "organizer" ? (
+        <div className="editor-panel single-panel organizer-panel">
+          <div className="poll-title-row">
+            <div>
+              <p className="section-kicker"><ListChecks size={18} aria-hidden="true" /> My polls</p>
+              <p className="helper-copy">
+                This browser can manage polls it created. Keep admin links private as a backup for organizer access.
+              </p>
+            </div>
+            {session?.superAdmin ? (
+              <span className="status super"><ShieldCheck size={14} aria-hidden="true" /> Super admin</span>
+            ) : null}
+          </div>
+          <button className="secondary" type="button" onClick={loadMyPolls} disabled={loadingMyPolls}>
+            {loadingMyPolls ? <Loader2 className="spin" size={18} aria-hidden="true" /> : <ListChecks size={18} aria-hidden="true" />}
+            Refresh polls
+          </button>
+          <div className="poll-list">
+            {myPolls.length ? (
+              myPolls.map((summary) => (
+                <button
+                  className="poll-card"
+                  key={summary.id}
+                  type="button"
+                  onClick={() => void openOrganizerPoll(summary)}
+                >
+                  <strong>{summary.title}</strong>
+                  <span>{summary.organizerName || "Host"} · {summary.responseCount} responses · {summary.status === "published" ? "Finalized" : "Collecting"}</span>
+                  {summary.description ? <small>{summary.description}</small> : null}
+                </button>
+              ))
+            ) : (
+              <p className="empty-copy">
+                No organizer polls on this browser yet. Create one poll, then come back here to manage it alongside the next one.
+              </p>
+            )}
+          </div>
+        </div>
+      ) : mode === "respond" ? (
         <div className="editor-panel single-panel">
           <p className="section-kicker"><Search size={18} aria-hidden="true" /> Respond</p>
           <label>
@@ -813,6 +975,7 @@ function PollWorkspace({
   attendeeLink,
   adminLink,
   adminToken,
+  returnToOrganizerHome,
   replyName,
   replyEmail,
   replyNote,
@@ -838,6 +1001,7 @@ function PollWorkspace({
   attendeeLink: string;
   adminLink: string;
   adminToken: string;
+  returnToOrganizerHome: () => void;
   replyName: string;
   replyEmail: string;
   replyNote: string;
@@ -966,6 +1130,10 @@ function PollWorkspace({
       <aside className="side-panel">
         <div className="share-panel">
           <p className="section-kicker"><LinkIcon size={18} aria-hidden="true" /> Links</p>
+          <button className="secondary full" type="button" onClick={returnToOrganizerHome}>
+            <ArrowLeft size={18} aria-hidden="true" />
+            Back to my polls
+          </button>
           <button className="secondary full" type="button" onClick={() => copyText(attendeeLink, "Attendee link copied.")}>
             <Clipboard size={18} aria-hidden="true" />
             Copy attendee link

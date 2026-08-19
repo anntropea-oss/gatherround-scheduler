@@ -1135,14 +1135,7 @@ function HomeWorkspace({
             </div>
           </div>
         </section>
-      ) : (
-        <div className="editor-panel single-panel">
-          <p className="section-kicker"><Sparkles size={18} aria-hidden="true" /> Start here</p>
-          <p className="description">
-            Create a poll when you are organizing. Respond to a poll when someone has sent you an attendee link.
-          </p>
-        </div>
-      )}
+      ) : null}
     </section>
   );
 }

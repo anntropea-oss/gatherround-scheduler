@@ -237,3 +237,11 @@
 - Files Changed: SOLUTIONS.md
 - Status: Open
 - Verification: `npm run lint` and `npm test` both completed successfully.
+
+## [2026-08-20 10:45] Finalized Poll Response Form Visibility
+- Problem: Finalized polls still displayed the attendee response form in a disabled state, and the route back to the main page was buried in the side panel.
+- Root Cause: The UI relied on disabled controls for non-collecting polls and only exposed poll navigation through the share/admin side panel.
+- Solution: Replaced the response form with a finalized/closed state panel when responses are not allowed, added a prominent `Main page` action to the poll header, and changed the side-panel organizer navigation to `My organizer polls`.
+- Files Changed: app/SchedulerApp.tsx, app/globals.css, SOLUTIONS.md
+- Status: Resolved
+- Verification: `npm run lint` and `npm test` completed successfully.

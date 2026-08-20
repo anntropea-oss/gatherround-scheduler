@@ -591,6 +591,13 @@ export default function SchedulerApp() {
     await loadPoll(summary.id, summary.adminToken);
   }
 
+  function returnToMainPage() {
+    setPoll(null);
+    setAdminToken("");
+    window.history.replaceState(null, "", "/");
+    setMode("start");
+  }
+
   function returnToOrganizerHome() {
     setPoll(null);
     setAdminToken("");
@@ -986,6 +993,7 @@ export default function SchedulerApp() {
           attendeeLink={attendeeLink}
           adminLink={adminLink}
           adminToken={adminToken}
+          returnToMainPage={returnToMainPage}
           returnToOrganizerHome={returnToOrganizerHome}
           editingPoll={editingPoll}
           editDraft={editDraft}
@@ -1318,6 +1326,7 @@ function PollWorkspace({
   attendeeLink,
   adminLink,
   adminToken,
+  returnToMainPage,
   returnToOrganizerHome,
   editingPoll,
   editDraft,
@@ -1357,6 +1366,7 @@ function PollWorkspace({
   attendeeLink: string;
   adminLink: string;
   adminToken: string;
+  returnToMainPage: () => void;
   returnToOrganizerHome: () => void;
   editingPoll: boolean;
   editDraft: {
@@ -1407,6 +1417,7 @@ function PollWorkspace({
     : null;
   const isAdmin = Boolean(adminToken);
   const canRespond = poll.poll.status === "collecting";
+  const isFinalized = poll.poll.status === "published";
 
   return (
     <section className="workspace poll">
@@ -1419,12 +1430,18 @@ function PollWorkspace({
             <h2>{poll.poll.title}</h2>
             {poll.poll.description ? <p className="description">{poll.poll.description}</p> : null}
           </div>
-          <span className={`status ${poll.poll.status}`}>
-            {statusLabel(poll.poll.status)}
-          </span>
+          <div className="poll-nav-actions">
+            <button className="secondary" type="button" onClick={returnToMainPage}>
+              <ArrowLeft size={18} aria-hidden="true" />
+              Main page
+            </button>
+            <span className={`status ${poll.poll.status}`}>
+              {statusLabel(poll.poll.status)}
+            </span>
+          </div>
         </div>
 
-        {poll.poll.status === "published" && selectedLabel ? (
+        {isFinalized && selectedLabel ? (
           <div className="winner-banner">
             <Trophy size={22} aria-hidden="true" />
             <div>
@@ -1485,84 +1502,98 @@ function PollWorkspace({
           </div>
         </section>
 
-        <div className="response-box focus-panel">
-          <div className="section-head">
-            <div>
-              <p className="section-kicker"><Check size={18} aria-hidden="true" /> Your availability</p>
-              <p className="helper-copy">Pick what works, then save once.</p>
+        {canRespond ? (
+          <div className="response-box focus-panel">
+            <div className="section-head">
+              <div>
+                <p className="section-kicker"><Check size={18} aria-hidden="true" /> Your availability</p>
+                <p className="helper-copy">Pick what works, then save once.</p>
+              </div>
             </div>
+            <div className="two-up">
+              <label>
+                Name
+                <input value={replyName} onChange={(event) => setReplyName(event.target.value)} maxLength={120} />
+              </label>
+              <label>
+                Email
+                <input value={replyEmail} onChange={(event) => setReplyEmail(event.target.value)} maxLength={180} />
+              </label>
+            </div>
+            <div className="vote-list">
+              {poll.options.map((option) => {
+                const formatted = formatOption(option, poll.poll.timezone, poll.poll.pollType);
+                return (
+                  <div className="vote-row availability-row" key={option.id}>
+                    <div className="time-chip">
+                      <strong>{formatted.day}</strong>
+                      <span>{formatted.time}{formatted.label ? ` - ${formatted.label}` : ""}</span>
+                    </div>
+                    <div className="segmented" aria-label={`${formatted.day} ${formatted.time}`}>
+                      {(["yes", "maybe", "no"] as Availability[]).map((availability) => (
+                        <button
+                          className={votes[option.id] === availability ? "active" : ""}
+                          key={availability}
+                          type="button"
+                          onClick={() => setVotes((current) => ({ ...current, [option.id]: availability }))}
+                        >
+                          {availabilityCopy[availability]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <label>
+              Notes
+              <textarea
+                value={replyNote}
+                onChange={(event) => setReplyNote(event.target.value)}
+                rows={3}
+                maxLength={1200}
+              />
+            </label>
+            <button className="primary full" type="button" onClick={submitResponse} disabled={busy}>
+              {busy ? <Loader2 className="spin" size={18} aria-hidden="true" /> : <Check size={18} aria-hidden="true" />}
+              Save my availability
+            </button>
           </div>
-          {!canRespond ? (
+        ) : (
+          <div className="response-box sealed-panel">
+            <p className="section-kicker"><Lock size={18} aria-hidden="true" /> Responses {isFinalized ? "finalized" : "closed"}</p>
             <p className="helper-copy">
-              Responses are {poll.poll.status === "published" ? "finalized" : "closed"} for this poll.
+              {isFinalized
+                ? "This poll has a final time, so the attendee link no longer accepts responses."
+                : "The organizer has paused responses for this poll."}
             </p>
-          ) : null}
-          <div className="two-up">
-            <label>
-              Name
-              <input disabled={!canRespond} value={replyName} onChange={(event) => setReplyName(event.target.value)} maxLength={120} />
-            </label>
-            <label>
-              Email
-              <input disabled={!canRespond} value={replyEmail} onChange={(event) => setReplyEmail(event.target.value)} maxLength={180} />
-            </label>
+            {isFinalized && selectedLabel ? (
+              <div className="sealed-result">
+                <strong>{selectedLabel.day} at {selectedLabel.time}</strong>
+                <span>{poll.poll.title}</span>
+              </div>
+            ) : null}
           </div>
-          <div className="vote-list">
-            {poll.options.map((option) => {
-              const formatted = formatOption(option, poll.poll.timezone, poll.poll.pollType);
-              return (
-                <div className="vote-row availability-row" key={option.id}>
-                  <div className="time-chip">
-                    <strong>{formatted.day}</strong>
-                    <span>{formatted.time}{formatted.label ? ` - ${formatted.label}` : ""}</span>
-                  </div>
-                  <div className="segmented" aria-label={`${formatted.day} ${formatted.time}`}>
-                    {(["yes", "maybe", "no"] as Availability[]).map((availability) => (
-                      <button
-                        className={votes[option.id] === availability ? "active" : ""}
-                        disabled={!canRespond}
-                        key={availability}
-                        type="button"
-                        onClick={() => setVotes((current) => ({ ...current, [option.id]: availability }))}
-                      >
-                        {availabilityCopy[availability]}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <label>
-            Notes
-            <textarea
-              value={replyNote}
-              disabled={!canRespond}
-              onChange={(event) => setReplyNote(event.target.value)}
-              rows={3}
-              maxLength={1200}
-            />
-          </label>
-          <button className="primary full" type="button" onClick={submitResponse} disabled={busy || !canRespond}>
-            {busy ? <Loader2 className="spin" size={18} aria-hidden="true" /> : <Check size={18} aria-hidden="true" />}
-            Save my availability
-          </button>
-        </div>
+        )}
       </div>
 
       <aside className="side-panel">
         <div className="share-panel access-panel">
           <p className="section-kicker"><LinkIcon size={18} aria-hidden="true" /> Share</p>
-          <button className="secondary full" type="button" onClick={returnToOrganizerHome}>
-            <ArrowLeft size={18} aria-hidden="true" />
-            Back to my polls
-          </button>
+          {isAdmin ? (
+            <button className="secondary full" type="button" onClick={returnToOrganizerHome}>
+              <ListChecks size={18} aria-hidden="true" />
+              My organizer polls
+            </button>
+          ) : null}
           <button className="secondary full" type="button" onClick={() => copyText(attendeeLink, "Attendee link copied.")}>
             <Clipboard size={18} aria-hidden="true" />
             Copy attendee link
           </button>
           <p className="helper-copy">
-            Send this to people who should respond. They can only submit availability.
+            {isFinalized
+              ? "Send this to show people the final time and calendar options."
+              : "Send this to people who should respond. They can only submit availability."}
           </p>
           {isAdmin ? (
             <>

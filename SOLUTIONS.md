@@ -285,3 +285,11 @@
 - Files Changed: docs/styles.css, SOLUTIONS.md
 - Status: Resolved
 - Verification: A stale color/variable search returned no matches for the old palette references.
+
+## [2026-08-20 11:58] Sites Source Push Authentication
+- Problem: Pushing the validated source to the Sites remote failed with `fatal: could not read Username for 'https://git.chatgpt-team.site': Device not configured`.
+- Root Cause: The configured Sites git remote did not include a current write credential.
+- Solution: Requested a short-lived Sites source repository write credential and retried the push with a one-command HTTP auth header.
+- Files Changed: SOLUTIONS.md
+- Status: Resolved
+- Verification: The authenticated `git push sites main` completed successfully.

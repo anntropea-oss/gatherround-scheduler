@@ -213,3 +213,19 @@
 - Files Changed: SOLUTIONS.md
 - Status: Open
 - Verification: The calendar invite commit completed successfully despite the warning.
+
+## [2026-08-20 10:22] Sites Credential Request Transport Error
+- Problem: The first request for a Sites source repository write credential failed with an HTTP transport error while publishing the calendar invite feature.
+- Root Cause: Transient connection failure to the Sites MCP endpoint.
+- Solution: Retried the credential request and continued the private deployment with the returned credential.
+- Files Changed: SOLUTIONS.md
+- Status: Resolved
+- Verification: The retry succeeded, the source push completed, and the private deployment reported `succeeded`.
+
+## [2026-08-20 10:22] Local Git Identity Warning Resolved
+- Problem: Git repeatedly warned that commits were using an auto-configured local machine identity.
+- Root Cause: Repository-level `user.name` and `user.email` were unset.
+- Solution: Set the repository Git identity to `Ann Tropea <atropea@umbc.edu>`.
+- Files Changed: SOLUTIONS.md
+- Status: Resolved
+- Verification: `git config user.name` and `git config user.email` now return explicit repository values.

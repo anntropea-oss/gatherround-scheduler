@@ -253,3 +253,11 @@
 - Files Changed: app/SchedulerApp.tsx, app/globals.css, SOLUTIONS.md
 - Status: Resolved
 - Verification: `npm run lint`, `npm test`, and a no-match search for removed header/locked-result references completed successfully.
+
+## [2026-08-20 11:36] Visualize Render Helper Missing
+- Problem: An optional attempt to locate the visualize `render.py` helper failed because the expected scripts directory was not present in the installed visualize plugin path.
+- Root Cause: Unknown; this plugin installation does not include the referenced helper at the documented location.
+- Solution: Verified the visual identity fragment directly for forbidden escaped markup, document wrappers, network calls, and size instead of using the optional render helper.
+- Files Changed: SOLUTIONS.md
+- Status: Workaround
+- Verification: The fragment sanity search returned no matches and `wc -c` confirmed the file is under 1 MB.

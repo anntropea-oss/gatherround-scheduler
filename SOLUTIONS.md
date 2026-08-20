@@ -197,3 +197,19 @@
 - Files Changed: SOLUTIONS.md
 - Status: Open
 - Verification: The poll screen polish commit completed successfully despite the warning.
+
+## [2026-08-20 09:53] Bracketed API Path Read Failure
+- Problem: A command to inspect `app/api/polls/[id]/route.ts` failed with `zsh: no matches found`.
+- Root Cause: zsh treated `[id]` as a glob pattern because the path was not quoted.
+- Solution: Re-ran the file read with the bracketed path quoted.
+- Files Changed: SOLUTIONS.md
+- Status: Resolved
+- Verification: The quoted-path read completed successfully.
+
+## [2026-08-20 09:56] Git Committer Identity Warning
+- Problem: `git commit` completed but again warned that the committer name and email were auto-configured from the local machine account.
+- Root Cause: Repository or global Git author identity has not been explicitly configured in this workspace.
+- Solution: Documented the repeated warning for follow-up; no app behavior change was required.
+- Files Changed: SOLUTIONS.md
+- Status: Open
+- Verification: The calendar invite commit completed successfully despite the warning.

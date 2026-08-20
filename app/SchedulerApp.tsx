@@ -99,6 +99,8 @@ const availabilityCopy: Record<Availability, string> = {
   no: "No",
 };
 
+const defaultEventDurationMinutes = 60;
+
 const availabilityScore: Record<Availability, number> = {
   yes: 2,
   maybe: 1,
@@ -260,6 +262,97 @@ function rankOptions(options: PollOption[], responses: PollResponse[]) {
       return { option, counts, score };
     })
     .sort((left, right) => right.score - left.score || right.counts.yes - left.counts.yes);
+}
+
+function selectedCalendarOption(source: PollPayload) {
+  return (
+    source.options.find((option) => option.id === source.poll.selectedOptionId) ??
+    rankOptions(source.options, source.responses)[0]?.option
+  );
+}
+
+function safeFileName(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80) || "gatherround-invite";
+}
+
+function formatIcsDate(date: Date) {
+  return date.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+}
+
+function escapeIcsText(value: string) {
+  return value
+    .replaceAll("\\", "\\\\")
+    .replaceAll("\n", "\\n")
+    .replaceAll(",", "\\,")
+    .replaceAll(";", "\\;");
+}
+
+function foldIcsLine(line: string) {
+  const parts = [];
+  for (let index = 0; index < line.length; index += 74) {
+    parts.push(`${index === 0 ? "" : " "}${line.slice(index, index + 74)}`);
+  }
+  return parts.join("\r\n");
+}
+
+function calendarInviteText(source: PollPayload, pollLink: string) {
+  const option = selectedCalendarOption(source);
+  if (!option) {
+    return "";
+  }
+
+  const startsAt = new Date(option.startsAt);
+  const endsAt = new Date(startsAt.getTime() + defaultEventDurationMinutes * 60 * 1000);
+  const formatted = formatOption(option, source.poll.timezone, source.poll.pollType);
+  const yesNames = source.responses
+    .filter((response) =>
+      response.slots.some((slot) => slot.optionId === option.id && slot.availability === "yes"),
+    )
+    .map((response) => response.name)
+    .filter(Boolean);
+  const maybeNames = source.responses
+    .filter((response) =>
+      response.slots.some((slot) => slot.optionId === option.id && slot.availability === "maybe"),
+    )
+    .map((response) => response.name)
+    .filter(Boolean);
+  const notes = source.responses
+    .map((response) => response.note)
+    .filter(Boolean);
+  const description = [
+    source.poll.description,
+    source.poll.publishNote ? `Organizer note: ${source.poll.publishNote}` : "",
+    `GatherRound final time: ${formatted.day} at ${formatted.time}`,
+    yesNames.length ? `Yes: ${yesNames.join(", ")}` : "",
+    maybeNames.length ? `Maybe: ${maybeNames.join(", ")}` : "",
+    notes.length ? `Feedback: ${notes.join(" | ")}` : "",
+    `Poll: ${pollLink}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//GatherRound//Scheduling Poll//EN",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    "BEGIN:VEVENT",
+    `UID:${source.poll.id}@gatherround`,
+    `DTSTAMP:${formatIcsDate(new Date())}`,
+    `DTSTART:${formatIcsDate(startsAt)}`,
+    `DTEND:${formatIcsDate(endsAt)}`,
+    source.poll.pollType === "weekly" ? "RRULE:FREQ=WEEKLY" : "",
+    `SUMMARY:${escapeIcsText(source.poll.title)}`,
+    `DESCRIPTION:${escapeIcsText(description)}`,
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ].filter(Boolean);
+
+  return `${lines.map(foldIcsLine).join("\r\n")}\r\n`;
 }
 
 function draftOptionsFromPoll(poll: PollPayload): DraftOption[] {
@@ -782,6 +875,27 @@ export default function SchedulerApp() {
     URL.revokeObjectURL(url);
   }
 
+  function downloadCalendarInvite() {
+    if (!poll) {
+      return;
+    }
+
+    const invite = calendarInviteText(poll, attendeeLink || `${origin}/?poll=${poll.poll.id}`);
+    if (!invite) {
+      setToast({ tone: "bad", message: "Choose a final time before downloading a calendar invite." });
+      return;
+    }
+
+    const blob = new Blob([invite], { type: "text/calendar;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${safeFileName(poll.poll.title)}.ics`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setToast({ tone: "good", message: "Calendar invite downloaded." });
+  }
+
   if (loadingPoll && !poll) {
     return (
       <main className="app-shell center-stage">
@@ -847,6 +961,7 @@ export default function SchedulerApp() {
           copyText={copyText}
           summaryText={summaryText}
           downloadCsv={downloadCsv}
+          downloadCalendarInvite={downloadCalendarInvite}
         />
       ) : (
         <HomeWorkspace
@@ -1177,6 +1292,7 @@ function PollWorkspace({
   copyText,
   summaryText,
   downloadCsv,
+  downloadCalendarInvite,
 }: {
   poll: PollPayload;
   ranked: ReturnType<typeof rankOptions>;
@@ -1226,6 +1342,7 @@ function PollWorkspace({
   copyText: (value: string, message?: string) => Promise<void>;
   summaryText: () => string;
   downloadCsv: () => void;
+  downloadCalendarInvite: () => void;
 }) {
   const selectedLabel = bestOption
     ? formatOption(bestOption, poll.poll.timezone, poll.poll.pollType)
@@ -1256,6 +1373,15 @@ function PollWorkspace({
               <strong>{selectedLabel.day} at {selectedLabel.time}</strong>
               <span>{poll.poll.publishNote || "This is the time to rally around."}</span>
             </div>
+            <button
+              className="secondary calendar-download"
+              type="button"
+              onClick={downloadCalendarInvite}
+              title="Download a 1-hour calendar invite"
+            >
+              <CalendarPlus size={18} aria-hidden="true" />
+              Calendar invite
+            </button>
           </div>
         ) : null}
 
@@ -1567,6 +1693,12 @@ function PollWorkspace({
                 <Clipboard size={18} aria-hidden="true" />
                 Copy summary
               </button>
+              {poll.poll.status === "published" ? (
+                <button className="secondary" type="button" onClick={downloadCalendarInvite}>
+                  <CalendarPlus size={18} aria-hidden="true" />
+                  Invite
+                </button>
+              ) : null}
               <button className="secondary" type="button" onClick={downloadCsv}>
                 <Download size={18} aria-hidden="true" />
                 CSV

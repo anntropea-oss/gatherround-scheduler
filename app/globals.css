@@ -533,11 +533,17 @@ button:focus-visible {
 
 .winner-banner div {
   display: grid;
+  flex: 1 1 auto;
   gap: 4px;
+  min-width: 0;
 }
 
 .winner-banner span {
   color: var(--ink-soft);
+}
+
+.calendar-download {
+  flex: 0 0 auto;
 }
 
 .focus-panel {
@@ -730,8 +736,18 @@ button:focus-visible {
   }
 
   .poll-title-row,
+  .poll-hero,
+  .winner-banner,
+  .section-head,
   .action-row {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .calendar-download,
+  .toolbar-row,
+  .quiet-actions {
+    grid-template-columns: 1fr;
+    width: 100%;
   }
 }

@@ -370,6 +370,7 @@ function googleCalendarUrl(source: PollPayload, pollLink: string) {
 
   const startsAt = new Date(option.startsAt);
   const endsAt = new Date(startsAt.getTime() + defaultEventDurationMinutes * 60 * 1000);
+  const attendeeEmails = Array.from(new Set(source.responses.map((response) => response.email.trim()).filter(Boolean)));
   const params = new URLSearchParams({
     action: "TEMPLATE",
     text: source.poll.title,
@@ -380,6 +381,9 @@ function googleCalendarUrl(source: PollPayload, pollLink: string) {
 
   if (source.poll.pollType === "weekly") {
     params.set("recur", "RRULE:FREQ=WEEKLY");
+  }
+  if (attendeeEmails.length) {
+    params.set("add", attendeeEmails.join(","));
   }
 
   return `https://calendar.google.com/calendar/render?${params.toString()}`;

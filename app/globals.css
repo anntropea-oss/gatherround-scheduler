@@ -542,7 +542,16 @@ button:focus-visible {
   color: var(--ink-soft);
 }
 
-.calendar-download {
+.winner-actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.winner-actions .primary,
+.winner-actions .secondary {
   flex: 0 0 auto;
 }
 
@@ -659,11 +668,16 @@ button:focus-visible {
   box-shadow: 0 3px 12px rgba(48, 42, 30, 0.1);
 }
 
-.toolbar-row,
-.quiet-actions {
+.toolbar-row {
   display: grid;
   gap: 10px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.quiet-actions {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
 }
 
 .finalize-area {
@@ -744,10 +758,14 @@ button:focus-visible {
     flex-direction: column;
   }
 
-  .calendar-download,
+  .winner-actions,
   .toolbar-row,
   .quiet-actions {
     grid-template-columns: 1fr;
     width: 100%;
+  }
+
+  .winner-actions {
+    display: grid;
   }
 }

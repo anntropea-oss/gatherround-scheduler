@@ -7,6 +7,7 @@ import {
   Check,
   Clipboard,
   Download,
+  ExternalLink,
   Link as LinkIcon,
   ListChecks,
   Lock,
@@ -299,14 +300,7 @@ function foldIcsLine(line: string) {
   return parts.join("\r\n");
 }
 
-function calendarInviteText(source: PollPayload, pollLink: string) {
-  const option = selectedCalendarOption(source);
-  if (!option) {
-    return "";
-  }
-
-  const startsAt = new Date(option.startsAt);
-  const endsAt = new Date(startsAt.getTime() + defaultEventDurationMinutes * 60 * 1000);
+function calendarEventDetails(source: PollPayload, option: PollOption, pollLink: string) {
   const formatted = formatOption(option, source.poll.timezone, source.poll.pollType);
   const yesNames = source.responses
     .filter((response) =>
@@ -334,6 +328,19 @@ function calendarInviteText(source: PollPayload, pollLink: string) {
   ]
     .filter(Boolean)
     .join("\n");
+
+  return description;
+}
+
+function calendarInviteText(source: PollPayload, pollLink: string) {
+  const option = selectedCalendarOption(source);
+  if (!option) {
+    return "";
+  }
+
+  const startsAt = new Date(option.startsAt);
+  const endsAt = new Date(startsAt.getTime() + defaultEventDurationMinutes * 60 * 1000);
+  const description = calendarEventDetails(source, option, pollLink);
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
@@ -353,6 +360,29 @@ function calendarInviteText(source: PollPayload, pollLink: string) {
   ].filter(Boolean);
 
   return `${lines.map(foldIcsLine).join("\r\n")}\r\n`;
+}
+
+function googleCalendarUrl(source: PollPayload, pollLink: string) {
+  const option = selectedCalendarOption(source);
+  if (!option) {
+    return "";
+  }
+
+  const startsAt = new Date(option.startsAt);
+  const endsAt = new Date(startsAt.getTime() + defaultEventDurationMinutes * 60 * 1000);
+  const params = new URLSearchParams({
+    action: "TEMPLATE",
+    text: source.poll.title,
+    dates: `${formatIcsDate(startsAt)}/${formatIcsDate(endsAt)}`,
+    details: calendarEventDetails(source, option, pollLink),
+    ctz: source.poll.timezone,
+  });
+
+  if (source.poll.pollType === "weekly") {
+    params.set("recur", "RRULE:FREQ=WEEKLY");
+  }
+
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
 
 function draftOptionsFromPoll(poll: PollPayload): DraftOption[] {
@@ -896,6 +926,27 @@ export default function SchedulerApp() {
     setToast({ tone: "good", message: "Calendar invite downloaded." });
   }
 
+  function openGoogleCalendar() {
+    if (!poll) {
+      return;
+    }
+
+    const url = googleCalendarUrl(poll, attendeeLink || `${origin}/?poll=${poll.poll.id}`);
+    if (!url) {
+      setToast({ tone: "bad", message: "Choose a final time before opening Google Calendar." });
+      return;
+    }
+
+    const tab = window.open(url, "_blank");
+    if (tab) {
+      tab.opener = null;
+      setToast({ tone: "good", message: "Google Calendar opened with the final time." });
+      return;
+    }
+
+    setToast({ tone: "bad", message: "Pop-up blocked. Allow pop-ups or use the calendar invite download." });
+  }
+
   if (loadingPoll && !poll) {
     return (
       <main className="app-shell center-stage">
@@ -962,6 +1013,7 @@ export default function SchedulerApp() {
           summaryText={summaryText}
           downloadCsv={downloadCsv}
           downloadCalendarInvite={downloadCalendarInvite}
+          openGoogleCalendar={openGoogleCalendar}
         />
       ) : (
         <HomeWorkspace
@@ -1293,6 +1345,7 @@ function PollWorkspace({
   summaryText,
   downloadCsv,
   downloadCalendarInvite,
+  openGoogleCalendar,
 }: {
   poll: PollPayload;
   ranked: ReturnType<typeof rankOptions>;
@@ -1343,6 +1396,7 @@ function PollWorkspace({
   summaryText: () => string;
   downloadCsv: () => void;
   downloadCalendarInvite: () => void;
+  openGoogleCalendar: () => void;
 }) {
   const selectedLabel = bestOption
     ? formatOption(bestOption, poll.poll.timezone, poll.poll.pollType)
@@ -1373,15 +1427,26 @@ function PollWorkspace({
               <strong>{selectedLabel.day} at {selectedLabel.time}</strong>
               <span>{poll.poll.publishNote || "This is the time to rally around."}</span>
             </div>
-            <button
-              className="secondary calendar-download"
-              type="button"
-              onClick={downloadCalendarInvite}
-              title="Download a 1-hour calendar invite"
-            >
-              <CalendarPlus size={18} aria-hidden="true" />
-              Calendar invite
-            </button>
+            <div className="winner-actions">
+              <button
+                className="primary"
+                type="button"
+                onClick={openGoogleCalendar}
+                title="Open this time in Google Calendar"
+              >
+                <ExternalLink size={18} aria-hidden="true" />
+                Google Calendar
+              </button>
+              <button
+                className="secondary"
+                type="button"
+                onClick={downloadCalendarInvite}
+                title="Download a 1-hour calendar invite"
+              >
+                <CalendarPlus size={18} aria-hidden="true" />
+                Calendar invite
+              </button>
+            </div>
           </div>
         ) : null}
 
@@ -1694,10 +1759,16 @@ function PollWorkspace({
                 Copy summary
               </button>
               {poll.poll.status === "published" ? (
-                <button className="secondary" type="button" onClick={downloadCalendarInvite}>
-                  <CalendarPlus size={18} aria-hidden="true" />
-                  Invite
-                </button>
+                <>
+                  <button className="secondary" type="button" onClick={openGoogleCalendar}>
+                    <ExternalLink size={18} aria-hidden="true" />
+                    Google
+                  </button>
+                  <button className="secondary" type="button" onClick={downloadCalendarInvite}>
+                    <CalendarPlus size={18} aria-hidden="true" />
+                    Invite
+                  </button>
+                </>
               ) : null}
               <button className="secondary" type="button" onClick={downloadCsv}>
                 <Download size={18} aria-hidden="true" />

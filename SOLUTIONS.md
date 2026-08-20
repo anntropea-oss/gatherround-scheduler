@@ -229,3 +229,11 @@
 - Files Changed: SOLUTIONS.md
 - Status: Resolved
 - Verification: `git config user.name` and `git config user.email` now return explicit repository values.
+
+## [2026-08-20 10:30] Build Dependency Deprecation Warning
+- Problem: `npm test` completed successfully but the Vinext build emitted a Node `DEP0040` deprecation warning for the `punycode` module.
+- Root Cause: Unknown; likely a transitive dependency in the current build toolchain.
+- Solution: No code fix applied because the build and tests passed and the warning is outside the app feature path.
+- Files Changed: SOLUTIONS.md
+- Status: Open
+- Verification: `npm run lint` and `npm test` both completed successfully.

@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  ArrowLeft,
   CalendarDays,
   CalendarPlus,
   Check,
@@ -591,11 +590,37 @@ export default function SchedulerApp() {
     await loadPoll(summary.id, summary.adminToken);
   }
 
-  function returnToMainPage() {
+  function navigateHome() {
     setPoll(null);
     setAdminToken("");
+    setToast(null);
     window.history.replaceState(null, "", "/");
     setMode("start");
+  }
+
+  function navigateCreate() {
+    setPoll(null);
+    setAdminToken("");
+    setToast(null);
+    window.history.replaceState(null, "", "/");
+    setMode("create");
+  }
+
+  function navigateRespond() {
+    setPoll(null);
+    setAdminToken("");
+    setToast(null);
+    window.history.replaceState(null, "", "/");
+    setMode("respond");
+  }
+
+  function navigateOrganizer() {
+    setPoll(null);
+    setAdminToken("");
+    setToast(null);
+    window.history.replaceState(null, "", "/");
+    setMode("organizer");
+    void loadMyPolls();
   }
 
   function returnToOrganizerHome() {
@@ -960,18 +985,35 @@ export default function SchedulerApp() {
 
   if (loadingPoll && !poll) {
     return (
-      <main className="app-shell center-stage">
-        <Loader2 className="spin" aria-hidden="true" />
-        <p>Opening poll...</p>
+      <main className="app-shell">
+        <AppNav
+          mode={mode}
+          pollOpen={Boolean(poll)}
+          navigateHome={navigateHome}
+          navigateCreate={navigateCreate}
+          navigateOrganizer={navigateOrganizer}
+          navigateRespond={navigateRespond}
+        />
+        <div className="center-stage loading-stage">
+          <Loader2 className="spin" aria-hidden="true" />
+          <p>Opening poll...</p>
+        </div>
       </main>
     );
   }
 
   return (
     <main className="app-shell">
+      <AppNav
+        mode={mode}
+        pollOpen={Boolean(poll)}
+        navigateHome={navigateHome}
+        navigateCreate={navigateCreate}
+        navigateOrganizer={navigateOrganizer}
+        navigateRespond={navigateRespond}
+      />
       <section className="masthead compact" aria-label="GatherRound">
         <div>
-          <p className="brand"><Sparkles size={18} aria-hidden="true" /> GatherRound</p>
           <h1>Find the best time to meet, once or every week.</h1>
         </div>
         <div className="signal-strip" aria-hidden="true">
@@ -993,7 +1035,6 @@ export default function SchedulerApp() {
           attendeeLink={attendeeLink}
           adminLink={adminLink}
           adminToken={adminToken}
-          returnToMainPage={returnToMainPage}
           returnToOrganizerHome={returnToOrganizerHome}
           editingPoll={editingPoll}
           editDraft={editDraft}
@@ -1050,6 +1091,67 @@ export default function SchedulerApp() {
         />
       )}
     </main>
+  );
+}
+
+function AppNav({
+  mode,
+  pollOpen,
+  navigateHome,
+  navigateCreate,
+  navigateOrganizer,
+  navigateRespond,
+}: {
+  mode: HomeMode;
+  pollOpen: boolean;
+  navigateHome: () => void;
+  navigateCreate: () => void;
+  navigateOrganizer: () => void;
+  navigateRespond: () => void;
+}) {
+  const activeMode = pollOpen ? "" : mode;
+
+  return (
+    <nav className="top-nav" aria-label="Primary navigation">
+      <button
+        className={`top-brand ${activeMode === "start" ? "active" : ""}`}
+        type="button"
+        onClick={navigateHome}
+        aria-current={activeMode === "start" ? "page" : undefined}
+      >
+        <Sparkles size={17} aria-hidden="true" />
+        GatherRound
+      </button>
+      <div className="top-nav-actions">
+        <button
+          className={activeMode === "create" ? "active" : ""}
+          type="button"
+          onClick={navigateCreate}
+          aria-current={activeMode === "create" ? "page" : undefined}
+        >
+          <CalendarPlus size={16} aria-hidden="true" />
+          Create
+        </button>
+        <button
+          className={activeMode === "organizer" ? "active" : ""}
+          type="button"
+          onClick={navigateOrganizer}
+          aria-current={activeMode === "organizer" ? "page" : undefined}
+        >
+          <ListChecks size={16} aria-hidden="true" />
+          My polls
+        </button>
+        <button
+          className={activeMode === "respond" ? "active" : ""}
+          type="button"
+          onClick={navigateRespond}
+          aria-current={activeMode === "respond" ? "page" : undefined}
+        >
+          <Search size={16} aria-hidden="true" />
+          Respond
+        </button>
+      </div>
+    </nav>
   );
 }
 
@@ -1326,7 +1428,6 @@ function PollWorkspace({
   attendeeLink,
   adminLink,
   adminToken,
-  returnToMainPage,
   returnToOrganizerHome,
   editingPoll,
   editDraft,
@@ -1366,7 +1467,6 @@ function PollWorkspace({
   attendeeLink: string;
   adminLink: string;
   adminToken: string;
-  returnToMainPage: () => void;
   returnToOrganizerHome: () => void;
   editingPoll: boolean;
   editDraft: {
@@ -1430,15 +1530,9 @@ function PollWorkspace({
             <h2>{poll.poll.title}</h2>
             {poll.poll.description ? <p className="description">{poll.poll.description}</p> : null}
           </div>
-          <div className="poll-nav-actions">
-            <button className="secondary" type="button" onClick={returnToMainPage}>
-              <ArrowLeft size={18} aria-hidden="true" />
-              Main page
-            </button>
-            <span className={`status ${poll.poll.status}`}>
-              {statusLabel(poll.poll.status)}
-            </span>
-          </div>
+          <span className={`status ${poll.poll.status}`}>
+            {statusLabel(poll.poll.status)}
+          </span>
         </div>
 
         {isFinalized && selectedLabel ? (
@@ -1559,22 +1653,14 @@ function PollWorkspace({
               Save my availability
             </button>
           </div>
-        ) : (
+        ) : !isFinalized ? (
           <div className="response-box sealed-panel">
-            <p className="section-kicker"><Lock size={18} aria-hidden="true" /> Responses {isFinalized ? "finalized" : "closed"}</p>
+            <p className="section-kicker"><Lock size={18} aria-hidden="true" /> Responses closed</p>
             <p className="helper-copy">
-              {isFinalized
-                ? "This poll has a final time, so the attendee link no longer accepts responses."
-                : "The organizer has paused responses for this poll."}
+              The organizer has paused responses for this poll.
             </p>
-            {isFinalized && selectedLabel ? (
-              <div className="sealed-result">
-                <strong>{selectedLabel.day} at {selectedLabel.time}</strong>
-                <span>{poll.poll.title}</span>
-              </div>
-            ) : null}
           </div>
-        )}
+        ) : null}
       </div>
 
       <aside className="side-panel">

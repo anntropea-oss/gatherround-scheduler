@@ -245,3 +245,11 @@
 - Files Changed: app/SchedulerApp.tsx, app/globals.css, SOLUTIONS.md
 - Status: Resolved
 - Verification: `npm run lint` and `npm test` completed successfully.
+
+## [2026-08-20 10:51] Poll Navigation UX Revision
+- Problem: The prominent poll-header `Main page` button and finalized locked-state panel felt too heavy after review.
+- Root Cause: Navigation was handled as page-specific UI instead of a consistent app-level control, and the finalized state duplicated information already present in the final-result banner.
+- Solution: Added a slim global navigation bar with Home/Create/My polls/Respond actions, removed the poll-header `Main page` button, and stopped rendering any replacement response panel after finalization.
+- Files Changed: app/SchedulerApp.tsx, app/globals.css, SOLUTIONS.md
+- Status: Resolved
+- Verification: `npm run lint`, `npm test`, and a no-match search for removed header/locked-result references completed successfully.

@@ -53,6 +53,58 @@ button:disabled {
   padding: 24px;
 }
 
+.top-nav {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin: 0 auto;
+  max-width: 1220px;
+  padding: 0 0 18px;
+}
+
+.top-brand,
+.top-nav-actions button {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--ink-soft);
+  display: inline-flex;
+  font-size: 0.9rem;
+  font-weight: 850;
+  gap: 8px;
+  min-height: 38px;
+  padding: 8px 10px;
+}
+
+.top-brand {
+  color: var(--foreground);
+}
+
+.top-nav-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.top-brand:hover,
+.top-brand:focus-visible,
+.top-brand.active,
+.top-nav-actions button:hover,
+.top-nav-actions button:focus-visible,
+.top-nav-actions button.active {
+  background: var(--panel);
+  border-color: var(--line);
+  color: var(--foreground);
+}
+
+.loading-stage {
+  min-height: 50vh;
+}
+
 .center-stage {
   align-items: center;
   display: flex;
@@ -273,17 +325,6 @@ h2 {
 
 .poll-hero h2 {
   font-size: clamp(2rem, 3.4vw, 3.05rem);
-}
-
-.poll-nav-actions {
-  align-items: end;
-  display: grid;
-  gap: 10px;
-  justify-items: end;
-}
-
-.poll-nav-actions .secondary {
-  min-width: 136px;
 }
 
 .section-head {
@@ -577,20 +618,6 @@ button:focus-visible {
   box-shadow: none;
 }
 
-.sealed-result {
-  background: rgba(255, 253, 248, 0.76);
-  border: 1px solid rgba(112, 81, 17, 0.18);
-  border-radius: 8px;
-  display: grid;
-  gap: 3px;
-  padding: 12px;
-}
-
-.sealed-result span {
-  color: var(--ink-soft);
-  font-size: 0.9rem;
-}
-
 .result-grid {
   display: grid;
   gap: 12px;
@@ -773,6 +800,21 @@ button:focus-visible {
     font-size: 2.55rem;
   }
 
+  .top-nav {
+    align-items: stretch;
+    display: grid;
+  }
+
+  .top-nav-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    justify-content: stretch;
+  }
+
+  .top-nav-actions button {
+    justify-content: center;
+  }
+
   .two-up,
   .draft-option,
   .draft-option.weekly,
@@ -790,15 +832,10 @@ button:focus-visible {
   }
 
   .winner-actions,
-  .poll-nav-actions,
   .toolbar-row,
   .quiet-actions {
     grid-template-columns: 1fr;
     width: 100%;
-  }
-
-  .poll-nav-actions {
-    justify-items: stretch;
   }
 
   .winner-actions {

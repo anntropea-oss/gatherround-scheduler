@@ -1762,18 +1762,6 @@ function PollWorkspace({
                 <Clipboard size={18} aria-hidden="true" />
                 Copy summary
               </button>
-              {poll.poll.status === "published" ? (
-                <>
-                  <button className="secondary" type="button" onClick={openGoogleCalendar}>
-                    <ExternalLink size={18} aria-hidden="true" />
-                    Google
-                  </button>
-                  <button className="secondary" type="button" onClick={downloadCalendarInvite}>
-                    <CalendarPlus size={18} aria-hidden="true" />
-                    Invite
-                  </button>
-                </>
-              ) : null}
               <button className="secondary" type="button" onClick={downloadCsv}>
                 <Download size={18} aria-hidden="true" />
                 CSV

@@ -301,3 +301,11 @@
 - Files Changed: SOLUTIONS.md
 - Status: Resolved
 - Verification: The Sites metadata update response returned `"title":"When/Now"`.
+
+## [2026-08-20 12:02] Private Sites Curl Verification Blocked
+- Problem: A direct `curl` verification request to the private Sites URL returned the sign-in page instead of the deployed app HTML.
+- Root Cause: The private Sites access gate does not accept a standard bearer authorization header for this check.
+- Solution: Used the Sites deployment status as the production verification path and opened the private URL in the Codex browser session for user review.
+- Files Changed: SOLUTIONS.md
+- Status: Workaround
+- Verification: The Sites deployment status reported `succeeded` with the production URL, while local production render tests had already passed.

@@ -309,3 +309,35 @@
 - Files Changed: SOLUTIONS.md
 - Status: Workaround
 - Verification: The Sites deployment status reported `succeeded` with the production URL, while local production render tests had already passed.
+
+## [2026-08-20 16:56] Missing UX Testing Feedback Loop
+- Problem: The public beta plan needed a way for testers to send quick feedback without needing GitHub accounts or a separate survey.
+- Root Cause: Feedback collection only existed as a concept; there was no app route, database table, or UI control for it.
+- Solution: Added a lightweight feedback widget, `/api/feedback`, a D1-backed `ux_feedback` table, and a super-admin feedback list inside My polls.
+- Files Changed: app/SchedulerApp.tsx, app/api/feedback/route.ts, app/globals.css, db/feedback.ts, db/schema.ts, SOLUTIONS.md
+- Status: Resolved
+- Verification: `npm test` and `npm run lint` completed successfully.
+
+## [2026-08-20 16:56] Stale Repository Branding
+- Problem: GitHub-facing URLs and package metadata still used the old `gatherround-scheduler` or starter names after the product was renamed.
+- Root Cause: The app branding pass updated visible product UI first, but repository metadata and static hub links were still on the old identifiers.
+- Solution: Renamed the GitHub repository to `when-now-scheduler`, updated the local `origin` remote, changed package metadata, and updated static hub repository links.
+- Files Changed: docs/app.js, docs/index.html, package.json, package-lock.json, SOLUTIONS.md
+- Status: Resolved
+- Verification: `gh repo view anntropea-oss/when-now-scheduler` returned the renamed repository and `git remote -v` shows the new origin URL.
+
+## [2026-08-20 16:56] Sites Slug Still Uses Prototype Name
+- Problem: The existing Sites production URL still contains the old generated slug `gatherround-scheduler`.
+- Root Cause: The Sites connector exposes title, access, custom-domain, and deployment controls, but no in-place slug rename operation for an existing project.
+- Solution: Removed the stale hardcoded Sites URL from repo-facing static content and kept the existing Sites project as the deploy target while noting that a custom domain or fresh Sites project is needed for a fully clean production URL.
+- Files Changed: docs/index.html, SOLUTIONS.md
+- Status: Open
+- Verification: Tool discovery showed no slug-update tool; the remaining old slug appears only in historical solution log entries and the compatibility storage key scan.
+
+## [2026-08-20 16:56] Bracketed Route Path Read Failure
+- Problem: A combined inspection command failed with `zsh: no matches found: app/api/polls/[id]/responses/route.ts`.
+- Root Cause: zsh treated `[id]` as a glob pattern because the path was not quoted.
+- Solution: Re-ran the route inspection with the bracketed path quoted.
+- Files Changed: SOLUTIONS.md
+- Status: Resolved
+- Verification: The quoted route read completed successfully.

@@ -467,6 +467,13 @@ button:focus-visible {
   max-width: 860px;
 }
 
+.ux-feedback-list {
+  border-top: 2px solid var(--line);
+  display: grid;
+  gap: 12px;
+  padding-top: 16px;
+}
+
 .poll-card {
   background: #fffdf7;
   border: 2px solid var(--line);
@@ -791,6 +798,84 @@ button:focus-visible {
   min-width: 0;
 }
 
+.feedback-widget {
+  bottom: 20px;
+  display: grid;
+  gap: 10px;
+  justify-items: end;
+  position: fixed;
+  right: 20px;
+  z-index: 20;
+}
+
+.feedback-trigger,
+.icon-button {
+  align-items: center;
+  background: var(--foreground);
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  color: #fffaf0;
+  display: inline-flex;
+  font-weight: 850;
+  gap: 8px;
+  min-height: 42px;
+  padding: 9px 13px;
+}
+
+.feedback-trigger {
+  box-shadow: 4px 4px 0 #111111;
+}
+
+.feedback-trigger:hover,
+.feedback-trigger:focus-visible {
+  background: var(--acid);
+  color: var(--foreground);
+}
+
+.icon-button {
+  border-radius: 999px;
+  justify-content: center;
+  min-height: 38px;
+  padding: 8px;
+  width: 38px;
+}
+
+.feedback-popover {
+  background: var(--panel);
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 14px;
+  max-width: min(360px, calc(100vw - 32px));
+  padding: 16px;
+  width: 360px;
+}
+
+.sentiment-row {
+  background: var(--foreground);
+  border-radius: 7px;
+  display: grid;
+  gap: 4px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 4px;
+}
+
+.sentiment-row button {
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  color: #fffaf0;
+  font-size: 0.86rem;
+  font-weight: 850;
+  min-height: 34px;
+}
+
+.sentiment-row button.active {
+  background: var(--acid);
+  color: var(--foreground);
+}
+
 .feedback-item {
   border-top: 1px solid var(--line);
   display: grid;
@@ -878,5 +963,16 @@ button:focus-visible {
 
   .winner-actions {
     display: grid;
+  }
+
+  .feedback-widget {
+    bottom: 12px;
+    left: 12px;
+    right: 12px;
+  }
+
+  .feedback-trigger,
+  .feedback-popover {
+    width: 100%;
   }
 }

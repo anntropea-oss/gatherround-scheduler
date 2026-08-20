@@ -65,3 +65,22 @@ export const responseSlots = sqliteTable(
     index("idx_response_slots_option_id").on(table.optionId),
   ],
 );
+
+export const uxFeedback = sqliteTable(
+  "ux_feedback",
+  {
+    id: text("id").primaryKey(),
+    sentiment: text("sentiment").notNull().default(""),
+    message: text("message").notNull().default(""),
+    page: text("page").notNull().default(""),
+    path: text("path").notNull().default(""),
+    pollId: text("poll_id"),
+    role: text("role").notNull().default(""),
+    userAgent: text("user_agent").notNull().default(""),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    index("idx_ux_feedback_created_at").on(table.createdAt),
+    index("idx_ux_feedback_poll_id").on(table.pollId),
+  ],
+);

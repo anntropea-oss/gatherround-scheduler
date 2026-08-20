@@ -11,6 +11,7 @@ import {
   ListChecks,
   Lock,
   Loader2,
+  MessageSquare,
   Pencil,
   Repeat,
   Search,
@@ -18,12 +19,14 @@ import {
   Sparkles,
   Trophy,
   Unlock,
+  X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 type Availability = "yes" | "maybe" | "no";
 type PollType = "specific" | "weekly";
 type HomeMode = "start" | "create" | "organizer" | "respond";
+type FeedbackSentiment = "confusing" | "fine" | "loved";
 
 type PollOption = {
   id: string;
@@ -80,6 +83,17 @@ type SessionInfo = {
   superAdmin: boolean;
 };
 
+type UxFeedback = {
+  id: string;
+  sentiment: string;
+  message: string;
+  page: string;
+  path: string;
+  pollId: string | null;
+  role: string;
+  createdAt: string;
+};
+
 type DraftOption = {
   id: string;
   startsAt: string;
@@ -117,7 +131,8 @@ const weekdays = [
   "Saturday",
 ];
 
-const organizerKeyStorage = "gatherround.organizerKey";
+const legacyOrganizerKeyStorage = "gatherround.organizerKey";
+const organizerKeyStorage = "when-now.organizerKey";
 
 function readOrganizerKey() {
   if (typeof window === "undefined") {
@@ -127,6 +142,13 @@ function readOrganizerKey() {
   const existing = window.localStorage.getItem(organizerKeyStorage);
   if (existing) {
     return existing;
+  }
+
+  const legacy = window.localStorage.getItem(legacyOrganizerKeyStorage);
+  if (legacy) {
+    window.localStorage.setItem(organizerKeyStorage, legacy);
+    window.localStorage.removeItem(legacyOrganizerKeyStorage);
+    return legacy;
   }
 
   const key = crypto.randomUUID();
@@ -463,6 +485,11 @@ export default function SchedulerApp() {
     pollType: "specific" as PollType,
   });
   const [editDraftOptions, setEditDraftOptions] = useState<DraftOption[]>([]);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackSentiment, setFeedbackSentiment] = useState<FeedbackSentiment>("fine");
+  const [feedbackMessage, setFeedbackMessage] = useState("");
+  const [feedbackBusy, setFeedbackBusy] = useState(false);
+  const [uxFeedback, setUxFeedback] = useState<UxFeedback[]>([]);
 
   const ranked = useMemo(
     () => (poll ? rankOptions(poll.options, poll.responses) : []),
@@ -508,6 +535,15 @@ export default function SchedulerApp() {
       const result = payload as { polls: PollSummary[]; session: SessionInfo };
       setMyPolls(result.polls);
       setSession(result.session);
+      if (result.session.superAdmin) {
+        const feedbackResponse = await fetch("/api/feedback");
+        const feedbackPayload = await parseResponse(feedbackResponse);
+        if (feedbackResponse.ok) {
+          setUxFeedback((feedbackPayload as { feedback: UxFeedback[] }).feedback);
+        }
+      } else {
+        setUxFeedback([]);
+      }
     } finally {
       setLoadingMyPolls(false);
     }
@@ -984,6 +1020,43 @@ export default function SchedulerApp() {
     setToast({ tone: "bad", message: "Pop-up blocked. Allow pop-ups or use the calendar invite download." });
   }
 
+  async function submitFeedback() {
+    setFeedbackBusy(true);
+    try {
+      const path = `${window.location.pathname}${window.location.search}`;
+      const page = poll ? "poll" : mode;
+      const role = poll ? (adminToken ? "organizer" : "attendee") : mode;
+      const response = await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          sentiment: feedbackSentiment,
+          message: feedbackMessage,
+          page,
+          path,
+          pollId: poll?.poll.id ?? null,
+          role,
+        }),
+      });
+      const payload = await parseResponse(response);
+
+      if (!response.ok) {
+        setToast({ tone: "bad", message: getErrorMessage(payload) });
+        return;
+      }
+
+      setFeedbackMessage("");
+      setFeedbackSentiment("fine");
+      setFeedbackOpen(false);
+      setToast({ tone: "good", message: "Feedback saved. Thank you." });
+      if (session?.superAdmin) {
+        void loadMyPolls();
+      }
+    } finally {
+      setFeedbackBusy(false);
+    }
+  }
+
   if (loadingPoll && !poll) {
     return (
       <main className="app-shell">
@@ -1031,6 +1104,17 @@ export default function SchedulerApp() {
       </section>
 
       {toast ? <p className={`toast ${toast.tone}`}>{toast.message}</p> : null}
+
+      <FeedbackWidget
+        open={feedbackOpen}
+        sentiment={feedbackSentiment}
+        message={feedbackMessage}
+        busy={feedbackBusy}
+        setOpen={setFeedbackOpen}
+        setSentiment={setFeedbackSentiment}
+        setMessage={setFeedbackMessage}
+        submitFeedback={submitFeedback}
+      />
 
       {poll ? (
         <PollWorkspace
@@ -1081,6 +1165,7 @@ export default function SchedulerApp() {
           setDraft={setDraft}
           draftOptions={draftOptions}
           myPolls={myPolls}
+          uxFeedback={uxFeedback}
           session={session}
           loadingMyPolls={loadingMyPolls}
           pollLookup={pollLookup}
@@ -1160,6 +1245,78 @@ function AppNav({
   );
 }
 
+function FeedbackWidget({
+  open,
+  sentiment,
+  message,
+  busy,
+  setOpen,
+  setSentiment,
+  setMessage,
+  submitFeedback,
+}: {
+  open: boolean;
+  sentiment: FeedbackSentiment;
+  message: string;
+  busy: boolean;
+  setOpen: (value: boolean) => void;
+  setSentiment: (value: FeedbackSentiment) => void;
+  setMessage: (value: string) => void;
+  submitFeedback: () => Promise<void>;
+}) {
+  return (
+    <div className="feedback-widget">
+      {open ? (
+        <div className="feedback-popover" role="dialog" aria-label="Send feedback">
+          <div className="section-head">
+            <div>
+              <p className="section-kicker"><MessageSquare size={18} aria-hidden="true" /> Feedback</p>
+              <p className="helper-copy">What should I know before this goes wider?</p>
+            </div>
+            <button className="icon-button" type="button" onClick={() => setOpen(false)} aria-label="Close feedback">
+              <X size={18} aria-hidden="true" />
+            </button>
+          </div>
+          <div className="sentiment-row" aria-label="Feedback vibe">
+            {([
+              ["confusing", "Confusing"],
+              ["fine", "Fine"],
+              ["loved", "Loved it"],
+            ] as Array<[FeedbackSentiment, string]>).map(([value, label]) => (
+              <button
+                className={sentiment === value ? "active" : ""}
+                key={value}
+                type="button"
+                onClick={() => setSentiment(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <label>
+            Note
+            <textarea
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+              rows={3}
+              maxLength={1200}
+              placeholder="What felt weird, smooth, missing, or secretly excellent?"
+            />
+          </label>
+          <button className="primary full" type="button" onClick={submitFeedback} disabled={busy}>
+            {busy ? <Loader2 className="spin" size={18} aria-hidden="true" /> : <MessageSquare size={18} aria-hidden="true" />}
+            Send feedback
+          </button>
+        </div>
+      ) : null}
+      <button className="feedback-trigger" type="button" onClick={() => setOpen(!open)}>
+        <MessageSquare size={18} aria-hidden="true" />
+        Feedback
+      </button>
+    </div>
+  );
+}
+
 function HomeWorkspace({
   mode,
   setMode,
@@ -1167,6 +1324,7 @@ function HomeWorkspace({
   setDraft,
   draftOptions,
   myPolls,
+  uxFeedback,
   session,
   loadingMyPolls,
   pollLookup,
@@ -1198,6 +1356,7 @@ function HomeWorkspace({
   }>>;
   draftOptions: DraftOption[];
   myPolls: PollSummary[];
+  uxFeedback: UxFeedback[];
   session: SessionInfo | null;
   loadingMyPolls: boolean;
   pollLookup: string;
@@ -1283,6 +1442,22 @@ function HomeWorkspace({
               </p>
             )}
           </div>
+          {session?.superAdmin ? (
+            <div className="ux-feedback-list">
+              <p className="section-kicker"><MessageSquare size={18} aria-hidden="true" /> UX feedback</p>
+              {uxFeedback.length ? (
+                uxFeedback.map((item) => (
+                  <div className="feedback-item" key={item.id}>
+                    <strong>{item.sentiment || "note"} · {item.role || item.page}</strong>
+                    <span>{item.path}</span>
+                    {item.message ? <p>{item.message}</p> : null}
+                  </div>
+                ))
+              ) : (
+                <p className="empty-copy">No UX feedback yet.</p>
+              )}
+            </div>
+          ) : null}
         </div>
       ) : mode === "respond" ? (
         <div className="editor-panel single-panel">

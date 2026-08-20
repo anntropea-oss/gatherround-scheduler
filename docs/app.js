@@ -8,7 +8,7 @@ const state = {
 
 const availabilityCopy = { yes: "Yes", maybe: "Maybe", no: "No" };
 const availabilityScore = { yes: 2, maybe: 1, no: 0 };
-const repoIssuesUrl = "https://github.com/anntropea-oss/gatherround-scheduler/issues/new";
+const repoIssuesUrl = "https://github.com/anntropea-oss/when-now-scheduler/issues/new";
 
 const $ = (id) => document.getElementById(id);
 

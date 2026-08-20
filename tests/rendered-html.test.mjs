@@ -23,14 +23,14 @@ async function render() {
   );
 }
 
-test("server-renders the GatherRound app shell", async () => {
+test("server-renders the When/Now app shell", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, /<title>GatherRound<\/title>/i);
-  assert.match(html, /Find the best time to meet, once or every week/);
+  assert.match(html, /<title>When\/Now<\/title>/i);
+  assert.match(html, /Make time less cursed/);
   assert.match(html, /Create a scheduling poll/);
   assert.match(html, /Respond to a poll/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton|Your site is taking shape/i);
@@ -44,6 +44,6 @@ test("starter preview assets have been removed", async () => {
   ]);
 
   assert.match(page, /<SchedulerApp \/>/);
-  assert.match(layout, /title:\s*"GatherRound"/);
+  assert.match(layout, /title:\s*"When\/Now"/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
 });

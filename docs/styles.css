@@ -1,15 +1,13 @@
 :root {
-  --background: #f6f4ef;
-  --foreground: #201f1b;
-  --ink-soft: #68645b;
-  --panel: #fffdf8;
-  --line: #ded8ca;
-  --mint: #85d7b9;
-  --mint-dark: #11684d;
-  --blue: #5277d8;
-  --rose: #ef7d7d;
-  --gold: #f2bd4b;
-  --shadow: 0 22px 60px rgba(48, 42, 30, 0.13);
+  --background: #f5f0e4;
+  --foreground: #111111;
+  --ink-soft: #49463f;
+  --panel: #fffaf0;
+  --line: #111111;
+  --acid: #c7ff2f;
+  --acid-dim: #e8ff98;
+  --hot: #ff4d38;
+  --shadow: 7px 7px 0 #111111;
 }
 
 * {
@@ -17,7 +15,10 @@
 }
 
 body {
-  background: var(--background);
+  background:
+    linear-gradient(135deg, transparent 0 72%, rgba(199, 255, 47, 0.4) 72% 76%, transparent 76%),
+    repeating-linear-gradient(90deg, rgba(17, 17, 17, 0.025) 0 1px, transparent 1px 68px),
+    var(--background);
   color: var(--foreground);
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
@@ -54,7 +55,7 @@ button {
 .brand,
 .kicker {
   align-items: center;
-  color: var(--mint-dark);
+  color: var(--foreground);
   display: flex;
   font-size: 0.85rem;
   font-weight: 800;
@@ -64,11 +65,22 @@ button {
   text-transform: uppercase;
 }
 
+.brand::before {
+  background: var(--hot);
+  border: 2px solid var(--line);
+  content: "";
+  display: inline-block;
+  height: 10px;
+  width: 10px;
+}
+
 h1,
 h2 {
+  font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
   letter-spacing: 0;
   line-height: 1;
   margin: 0;
+  text-transform: uppercase;
 }
 
 h1 {
@@ -91,9 +103,9 @@ h2 {
 .signal-strip {
   align-items: end;
   background:
-    linear-gradient(90deg, rgba(82, 119, 216, 0.16), rgba(133, 215, 185, 0.22)),
-    var(--panel);
-  border: 1px solid var(--line);
+    linear-gradient(135deg, transparent 0 28%, rgba(255, 77, 56, 0.82) 28% 42%, transparent 42%),
+    var(--foreground);
+  border: 2px solid var(--line);
   border-radius: 8px;
   box-shadow: var(--shadow);
   display: grid;
@@ -105,9 +117,10 @@ h2 {
 
 .signal-strip span {
   align-items: end;
-  background: linear-gradient(180deg, var(--gold), var(--mint));
+  background: var(--acid);
+  border: 2px solid var(--line);
   border-radius: 7px 7px 4px 4px;
-  color: #332817;
+  color: var(--foreground);
   display: flex;
   font-size: 0.78rem;
   font-weight: 800;
@@ -156,7 +169,7 @@ h2 {
 .poll-main,
 .side-panel {
   background: var(--panel);
-  border: 1px solid var(--line);
+  border: 2px solid var(--line);
   border-radius: 8px;
   box-shadow: var(--shadow);
   padding: 22px;
@@ -196,8 +209,9 @@ h2 {
 
 .cta-panel:focus-visible,
 .cta-panel:hover {
-  border-color: var(--blue);
-  box-shadow: inset 0 0 0 2px rgba(82, 119, 216, 0.2), var(--shadow);
+  background: var(--acid-dim);
+  border-color: var(--line);
+  box-shadow: var(--shadow);
 }
 
 .poll-title-row {
@@ -208,7 +222,7 @@ h2 {
 }
 
 .status {
-  border: 1px solid var(--line);
+  border: 2px solid var(--line);
   border-radius: 999px;
   color: var(--ink-soft);
   flex: 0 0 auto;
@@ -219,8 +233,8 @@ h2 {
 }
 
 .status.published {
-  background: #ecf8f1;
-  color: var(--mint-dark);
+  background: var(--acid);
+  color: var(--foreground);
 }
 
 label {
@@ -234,8 +248,8 @@ label {
 input,
 textarea,
 select {
-  background: #fffefa;
-  border: 1px solid var(--line);
+  background: #fffdf7;
+  border: 2px solid var(--line);
   border-radius: 7px;
   color: var(--foreground);
   min-height: 44px;
@@ -252,8 +266,8 @@ input:focus,
 textarea:focus,
 select:focus,
 button:focus-visible {
-  box-shadow: 0 0 0 3px rgba(82, 119, 216, 0.2);
-  outline: 2px solid var(--blue);
+  box-shadow: 0 0 0 3px rgba(199, 255, 47, 0.55);
+  outline: 2px solid var(--hot);
   outline-offset: 1px;
 }
 
@@ -293,7 +307,7 @@ button:focus-visible {
 .primary,
 .secondary {
   align-items: center;
-  border: 1px solid transparent;
+  border: 2px solid var(--line);
   border-radius: 7px;
   display: inline-flex;
   font-weight: 850;
@@ -304,13 +318,13 @@ button:focus-visible {
 }
 
 .primary {
-  background: var(--foreground);
-  color: white;
+  background: var(--acid);
+  color: var(--foreground);
+  box-shadow: 4px 4px 0 #111111;
 }
 
 .secondary {
-  background: #fffefa;
-  border-color: var(--line);
+  background: #fffdf7;
   color: var(--foreground);
 }
 
@@ -320,8 +334,8 @@ button:focus-visible {
 
 .winner-banner {
   align-items: center;
-  background: linear-gradient(90deg, rgba(242, 189, 75, 0.25), rgba(133, 215, 185, 0.25));
-  border: 1px solid #e8c76e;
+  background: var(--acid);
+  border: 2px solid var(--line);
   border-radius: 8px;
   display: flex;
   gap: 14px;
@@ -343,8 +357,8 @@ button:focus-visible {
 }
 
 .time-result {
-  background: #fffefa;
-  border: 1px solid var(--line);
+  background: #fffdf7;
+  border: 2px solid var(--line);
   border-radius: 8px;
   color: var(--foreground);
   display: grid;
@@ -357,12 +371,13 @@ button:focus-visible {
 }
 
 .time-result.selected {
-  border-color: var(--blue);
-  box-shadow: inset 0 0 0 2px rgba(82, 119, 216, 0.22);
+  background: var(--acid);
+  border-color: var(--line);
+  box-shadow: 5px 5px 0 #111111;
 }
 
 .time-result .rank {
-  color: var(--blue);
+  color: var(--hot);
   font-weight: 900;
 }
 
@@ -377,7 +392,7 @@ button:focus-visible {
 }
 
 .meter {
-  background: linear-gradient(90deg, var(--mint) var(--fill), #eee8da var(--fill));
+  background: linear-gradient(90deg, var(--foreground) var(--fill), rgba(17, 17, 17, 0.14) var(--fill));
   border-radius: 999px;
   display: block;
   height: 10px;
@@ -386,7 +401,7 @@ button:focus-visible {
 
 .vote-row {
   align-items: center;
-  border: 1px solid var(--line);
+  border: 2px solid var(--line);
   border-radius: 8px;
   display: grid;
   gap: 12px;
@@ -405,7 +420,7 @@ button:focus-visible {
 }
 
 .segmented {
-  background: #eee8da;
+  background: var(--foreground);
   border-radius: 7px;
   display: grid;
   gap: 4px;
@@ -417,20 +432,20 @@ button:focus-visible {
   background: transparent;
   border: 0;
   border-radius: 5px;
-  color: var(--ink-soft);
+  color: #fffaf0;
   font-size: 0.86rem;
   font-weight: 850;
   min-height: 34px;
 }
 
 .segmented button.active {
-  background: var(--panel);
+  background: var(--acid);
   color: var(--foreground);
-  box-shadow: 0 3px 12px rgba(48, 42, 30, 0.1);
+  box-shadow: none;
 }
 
 .feedback-item {
-  border-top: 1px solid var(--line);
+  border-top: 2px solid var(--line);
   display: grid;
   gap: 4px;
   padding-top: 12px;

@@ -67,9 +67,10 @@ function formatOption(option, timezone = "UTC") {
   const date = new Date(option.startsAt);
   return {
     day: new Intl.DateTimeFormat(undefined, {
-      weekday: "short",
-      month: "short",
+      weekday: "long",
+      month: "long",
       day: "numeric",
+      year: "numeric",
       timeZone: timezone,
     }).format(date),
     time: new Intl.DateTimeFormat(undefined, {
@@ -397,7 +398,7 @@ function downloadCsv() {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `${state.poll.title || "gatherround"}-responses.csv`;
+  link.download = `${state.poll.title || "when-now"}-responses.csv`;
   link.click();
   URL.revokeObjectURL(url);
 }

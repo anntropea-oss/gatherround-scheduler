@@ -1,6 +1,6 @@
-# GatherRound
+# When/Now
 
-GatherRound is a friendly scheduling poll for finding a meeting time without
+When/Now is a sharp scheduling poll for finding a meeting time without
 calendar back-and-forth.
 
 This repo contains two surfaces:

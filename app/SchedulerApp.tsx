@@ -186,13 +186,13 @@ function defaultWeeklyOptions(): DraftOption[] {
 function formatOption(
   option: Pick<PollOption, "startsAt" | "label">,
   timezone: string,
-  pollType: PollType,
 ) {
   const date = new Date(option.startsAt);
   const day = new Intl.DateTimeFormat(undefined, {
-    weekday: pollType === "weekly" ? "long" : "short",
-    month: pollType === "weekly" ? undefined : "short",
-    day: pollType === "weekly" ? undefined : "numeric",
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
     timeZone: timezone,
   }).format(date);
   const time = new Intl.DateTimeFormat(undefined, {
@@ -276,7 +276,7 @@ function safeFileName(value: string) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
-    .slice(0, 80) || "gatherround-invite";
+    .slice(0, 80) || "when-now-invite";
 }
 
 function formatIcsDate(date: Date) {
@@ -300,7 +300,7 @@ function foldIcsLine(line: string) {
 }
 
 function calendarEventDetails(source: PollPayload, option: PollOption, pollLink: string) {
-  const formatted = formatOption(option, source.poll.timezone, source.poll.pollType);
+  const formatted = formatOption(option, source.poll.timezone);
   const yesNames = source.responses
     .filter((response) =>
       response.slots.some((slot) => slot.optionId === option.id && slot.availability === "yes"),
@@ -319,7 +319,7 @@ function calendarEventDetails(source: PollPayload, option: PollOption, pollLink:
   const description = [
     source.poll.description,
     source.poll.publishNote ? `Organizer note: ${source.poll.publishNote}` : "",
-    `GatherRound final time: ${formatted.day} at ${formatted.time}`,
+    `When/Now final time: ${formatted.day} at ${formatted.time}`,
     yesNames.length ? `Yes: ${yesNames.join(", ")}` : "",
     maybeNames.length ? `Maybe: ${maybeNames.join(", ")}` : "",
     notes.length ? `Feedback: ${notes.join(" | ")}` : "",
@@ -343,11 +343,11 @@ function calendarInviteText(source: PollPayload, pollLink: string) {
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//GatherRound//Scheduling Poll//EN",
+    "PRODID:-//When Now//Scheduling Poll//EN",
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
     "BEGIN:VEVENT",
-    `UID:${source.poll.id}@gatherround`,
+    `UID:${source.poll.id}@when-now`,
     `DTSTAMP:${formatIcsDate(new Date())}`,
     `DTSTART:${formatIcsDate(startsAt)}`,
     `DTEND:${formatIcsDate(endsAt)}`,
@@ -892,9 +892,10 @@ export default function SchedulerApp() {
       source.options.find((option) => option.id === source.poll.selectedOptionId) ??
       rankOptions(source.options, source.responses)[0]?.option;
     const winnerText = winner
-      ? `${formatOption(winner, source.poll.timezone, source.poll.pollType).day} at ${
-          formatOption(winner, source.poll.timezone, source.poll.pollType).time
-        }`
+      ? (() => {
+          const formattedWinner = formatOption(winner, source.poll.timezone);
+          return `${formattedWinner.day} at ${formattedWinner.time}`;
+        })()
       : "No winning time yet";
     return [
       `${source.poll.title}`,
@@ -913,7 +914,7 @@ export default function SchedulerApp() {
     const header = [
       "Name",
       ...poll.options.map((option) => {
-        const formatted = formatOption(option, poll.poll.timezone, poll.poll.pollType);
+        const formatted = formatOption(option, poll.poll.timezone);
         return `${formatted.day} ${formatted.time}`;
       }),
       "Feedback",
@@ -936,7 +937,7 @@ export default function SchedulerApp() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${poll?.poll.title ?? "gatherround"}-responses.csv`;
+    link.download = `${poll?.poll.title ?? "when-now"}-responses.csv`;
     link.click();
     URL.revokeObjectURL(url);
   }
@@ -1012,9 +1013,13 @@ export default function SchedulerApp() {
         navigateOrganizer={navigateOrganizer}
         navigateRespond={navigateRespond}
       />
-      <section className="masthead compact" aria-label="GatherRound">
+      <section className="masthead compact" aria-label="When/Now">
         <div>
-          <h1>Find the best time to meet, once or every week.</h1>
+          <p className="brand">When/Now</p>
+          <h1>Make time less cursed.</h1>
+          <p className="description">
+            Create a poll, collect real availability, and lock the final time without the calendar chaos.
+          </p>
         </div>
         <div className="signal-strip" aria-hidden="true">
           {["Mon", "Tue", "Wed", "Thu", "Fri"].map((day, index) => (
@@ -1120,7 +1125,7 @@ function AppNav({
         aria-current={activeMode === "start" ? "page" : undefined}
       >
         <Sparkles size={17} aria-hidden="true" />
-        GatherRound
+        When/Now
       </button>
       <div className="top-nav-actions">
         <button
@@ -1513,7 +1518,7 @@ function PollWorkspace({
   openGoogleCalendar: () => void;
 }) {
   const selectedLabel = bestOption
-    ? formatOption(bestOption, poll.poll.timezone, poll.poll.pollType)
+    ? formatOption(bestOption, poll.poll.timezone)
     : null;
   const isAdmin = Boolean(adminToken);
   const canRespond = poll.poll.status === "collecting";
@@ -1575,7 +1580,7 @@ function PollWorkspace({
           </div>
           <div className="result-grid">
             {ranked.map(({ option, counts, score }, index) => {
-              const formatted = formatOption(option, poll.poll.timezone, poll.poll.pollType);
+              const formatted = formatOption(option, poll.poll.timezone);
               const maxScore = Math.max(1, (poll.responses.length || 1) * 2);
               return (
                 <button
@@ -1616,7 +1621,7 @@ function PollWorkspace({
             </div>
             <div className="vote-list">
               {poll.options.map((option) => {
-                const formatted = formatOption(option, poll.poll.timezone, poll.poll.pollType);
+                const formatted = formatOption(option, poll.poll.timezone);
                 return (
                   <div className="vote-row availability-row" key={option.id}>
                     <div className="time-chip">
@@ -1850,7 +1855,7 @@ function PollWorkspace({
                   onChange={(event) => setSelectedOptionId(event.target.value)}
                 >
                   {poll.options.map((option) => {
-                    const formatted = formatOption(option, poll.poll.timezone, poll.poll.pollType);
+                    const formatted = formatOption(option, poll.poll.timezone);
                     return (
                       <option key={option.id} value={option.id}>
                         {formatted.day} {formatted.time}

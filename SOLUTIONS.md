@@ -261,3 +261,27 @@
 - Files Changed: SOLUTIONS.md
 - Status: Workaround
 - Verification: The fragment sanity search returned no matches and `wc -c` confirmed the file is under 1 MB.
+
+## [2026-08-20 11:56] Corporate Visual Identity
+- Problem: The app still used the old GatherRound name and a soft blue/green corporate color scheme after the user selected the sharper option A identity.
+- Root Cause: The selected visual identity had only been explored in a mockup, not applied to the production app, metadata, or public assets.
+- Solution: Renamed the visible product to When/Now, applied the sharp editorial acid-utility palette and typography, refreshed the favicon and social preview image, and updated tests and public hub copy.
+- Files Changed: app/SchedulerApp.tsx, app/globals.css, app/layout.tsx, docs/404.html, docs/app.js, docs/index.html, docs/styles.css, public/favicon.svg, public/og.png, README.md, tests/rendered-html.test.mjs, SOLUTIONS.md
+- Status: Resolved
+- Verification: `npm test` passed and the saved `public/og.png` was visually inspected.
+
+## [2026-08-20 11:56] Initial Branding Patch Mismatch
+- Problem: A combined multi-file patch for tests, favicon, docs, and README failed to apply.
+- Root Cause: The README text included `calendar back-and-forth`, which did not exactly match the patch context.
+- Solution: Split the update into smaller, exact patches and applied each affected file successfully.
+- Files Changed: tests/rendered-html.test.mjs, public/favicon.svg, docs/404.html, docs/index.html, README.md, SOLUTIONS.md
+- Status: Resolved
+- Verification: Follow-up file reads confirmed the expected updated title, favicon markup, and README heading.
+
+## [2026-08-20 11:56] Static Hub Stale CSS Variables
+- Problem: The GitHub Pages CSS still referenced removed old palette variables such as `--mint`, `--mint-dark`, and `--blue`.
+- Root Cause: The initial app theme pass updated the primary app CSS first and left older static hub styles partially migrated.
+- Solution: Replaced the remaining static hub variable references with the new When/Now palette and hard-edge selected states.
+- Files Changed: docs/styles.css, SOLUTIONS.md
+- Status: Resolved
+- Verification: A stale color/variable search returned no matches for the old palette references.

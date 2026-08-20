@@ -293,3 +293,11 @@
 - Files Changed: SOLUTIONS.md
 - Status: Resolved
 - Verification: The authenticated `git push sites main` completed successfully.
+
+## [2026-08-20 12:00] Stale Sites Project Title
+- Problem: The Sites project metadata still displayed the old GatherRound title after the app was renamed to When/Now.
+- Root Cause: The app source metadata and Sites project metadata are updated through separate paths.
+- Solution: Updated the Sites project display title to `When/Now`.
+- Files Changed: SOLUTIONS.md
+- Status: Resolved
+- Verification: The Sites metadata update response returned `"title":"When/Now"`.
